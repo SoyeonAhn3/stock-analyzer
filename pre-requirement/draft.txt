@@ -1,0 +1,1060 @@
+================================================================================
+AI Stock Analyzer — 개발 계획서
+Multi-Agent 미국 주식 종합 분석 시스템
+================================================================================
+작성일: 2026-03-25
+상태: 기획 완료, 개발 준비 단계
+
+
+================================================================================
+1. 프로젝트 개요
+================================================================================
+
+[프로젝트명]
+AI Stock Analyzer — Multi-Agent 미국 주식 종합 분석 시스템
+
+[한 줄 설명]
+미국 주식 티커를 입력하면 시세·차트·재무 지표를 즉시 보여주고,
+AI Agent 5명이 뉴스·데이터·매크로를 병렬 수집 → 교차 검증 → 종합 판단하여
+매수/중립/매도 의견을 제시하는 시스템. 미국 주식 전용.
+
+[프로그램 구성]
+  3개 모드 + 비교 + 가이드:
+
+  Quick Look        데이터 조회 (AI 없음, 즉시)
+  AI Deep Analysis  AI 심층 분석 (Agent 5개, 1~2분)
+  Sector Screening  섹터별 Top 5 추천 (2단계 필터, 2~3분)
+  Compare Mode      2~3 종목 비교 분석
+  Beginner's Guide  초보자 교육 페이지
+
+[법적 면책]
+  모든 분석 결과에 면책 조항 필수 표시:
+    "본 분석은 AI가 생성한 참고 자료이며, 투자 자문이 아닙니다.
+     실제 투자 판단은 본인 책임입니다."
+  이유: 투자 자문업 등록 없이 매매 권유 시 자본시장법 저촉 가능.
+  "매수 추천" 대신 "데이터 기반 분석: 긍정 신호 우세" 표현 사용.
+  Bull case와 Bear case를 항상 함께 표시.
+
+
+================================================================================
+2. 데이터 소스
+================================================================================
+
+Investing.com, Webull은 공식 API 미제공 → 사용 불가.
+금융 데이터 전용 API를 Agent별로 배분하여 사용.
+
+[API 목록]
+
+  yfinance (비공식, 무료, 무제한):
+    기업 정보 (PE, EPS, 시가총액 등), 주가 히스토리, 시장 지수
+    주의: 비공식. Yahoo 차단 가능. 메인이 아닌 1순위 시도 소스로 사용.
+
+  Finnhub (공식, 무료: 분당 60회):
+    준실시간 시세 (미국 주식 기준 약 15분 지연), 종목별 뉴스,
+    애널리스트 추천 (strong buy/buy/hold/sell 분포)
+    ※ 무료 티어의 시세는 실시간이 아닌 약 15분 지연 데이터임.
+    화면에 "Data delayed ~15 min" 표시 필수.
+
+  Twelve Data (공식, 무료: 일 800회):
+    기술적 지표 (RSI, MACD, 볼린저밴드 등 130종)
+    API가 지표를 직접 계산하여 반환 → Python 계산 불필요
+
+  FMP — Financial Modeling Prep (공식, 무료: 일 250회):
+    Stock Screener API (섹터별 필터링)
+    재무제표 (Income Statement, Balance Sheet)
+    GICS 섹터 분류 지원
+    섹터 평균 PE (Sector PE API 또는 섹터 상위 10종목 PE 중앙값 계산)
+    ※ 섹터 평균 PE는 Compare Mode에서 cross_sector 비교 시 사용.
+      FMP API 실패 시: 같은 섹터 상위 10개 종목의 PE를 yfinance로 수집하여
+      중앙값을 직접 계산하는 방식으로 폴백.
+
+  FRED API (공식, 무료):
+    연준 금리, CPI, 실업률 등 매크로 경제 지표
+
+  Alpha Vantage (공식, 무료: 일 25회):
+    주가 + 재무 + 기술지표 + 뉴스 감성 (올인원)
+    무료 일 25회로 제한적 → 최종 폴백 소스로 사용
+
+[API 우선순위 테이블 — 데이터 유형별]
+
+  데이터 유형         1순위        2순위         3순위(폴백)
+  ─────────────────────────────────────────────────────────
+  기업 재무           yfinance     FMP           Alpha Vantage
+  주가 히스토리       yfinance     Twelve Data   Alpha Vantage
+  준실시간 시세       Finnhub      yfinance      —
+  기술적 지표         Twelve Data  Python 계산    Alpha Vantage
+  뉴스 + 감성         Finnhub      Web Search     Alpha Vantage
+  애널리스트 추천     Finnhub      —              —
+  섹터 스크리닝       FMP          —              —
+  섹터 평균 PE       FMP          yfinance 계산   —
+  매크로 경제         FRED         Web Search     —
+
+  동작 방식: 1순위 API 호출 → 실패 시 2순위 → 2순위도 실패 시 3순위.
+  전부 실패 시 해당 데이터 항목 "데이터 없음" 표시.
+
+[API 호출 비용 관리]
+
+  일일 하드 리밋: AI Agent 호출 100회/일
+  사용량 표시: 사이드바에 "오늘 AI 사용: 47/100회"
+  리밋 근접 시(80회+): "오늘 AI 분석 잔여 횟수가 적습니다" 경고
+  리밋 도달 시: AI 분석 비활성화, Quick Look(데이터 조회)은 계속 가능
+  이유: Sector Screening 1회 = AI 10~15회. 하루 5번 하면 50~75회.
+  리밋 없으면 월 비용이 예측 불가능해짐.
+
+  예상 비용:
+    Quick Look: $0 (AI 미사용)
+    Deep Analysis 1회: ~$0.05~0.10 (Agent 5개)
+    Sector Screening 1회: ~$0.30~0.50 (Agent 10~15회)
+    Compare Mode 1회: ~$0.02~0.05 (AI 비교 의견 1회)
+    일일 100회 리밋 기준 월 최대: ~$15~20
+
+
+================================================================================
+3. 기본 화면 (티커 미입력 시)
+================================================================================
+
+프로그램 첫 화면. 빈 화면 대신 시장 현황을 보여줌.
+
+[표시 내용]
+
+  1. 시장 지수 요약 (카드)
+     S&P 500, NASDAQ, DOW, VIX
+     각각 현재가 + 등락률
+     데이터: yfinance (^GSPC, ^IXIC, ^DJI, ^VIX)
+
+  2. 오늘의 급등/급락 종목 (Top 5)
+     가장 많이 오른 5개 + 내린 5개
+     클릭 → Quick Look 이동
+     데이터: Finnhub 또는 yfinance
+
+  3. 주요 시장 뉴스 헤드라인 (3~5개)
+     제목 + 출처 + 시간
+     데이터: Finnhub News API
+
+  4. 하단 버튼
+     "초보자 가이드" → 가이드 페이지
+     "섹터 스크리닝" → 섹터 모드
+
+
+================================================================================
+4. Quick Look (데이터 조회)
+================================================================================
+
+AI 없음. API 호출 + 시각화. 1초 이내 응답.
+
+[4-1. 시세]
+  현재가, 등락(금액+%), 거래량, 일중 범위
+  장 전/장 후 시세
+  "Data delayed ~15 min" 표시
+  데이터: Finnhub → yfinance 폴백
+
+[4-2. 주가 차트]
+  기간: 1W / 1M / 3M / 6M / 1Y / 5Y
+  차트: 캔들스틱 / 라인 전환
+  오버레이: 50일 MA, 200일 MA
+  하단: 거래량 바
+  데이터: yfinance history
+  시각화: Plotly 인터랙티브
+
+[4-3. 기업 정보 (Fundamentals)]
+  시가총액, PE, Forward PE, EPS, PEG
+  52주 고/저, 배당 수익률, D/E
+  섹터, 산업, 직원 수, 본사
+  각 지표 옆 인라인 툴팁 (ⓘ)
+  데이터: yfinance → FMP 폴백
+
+[4-4. 기술적 지표 (Technicals)]
+  RSI(14), MACD, 볼린저밴드
+  50일/200일 MA, 거래량 추이
+  각 지표에 인라인 툴팁 + 신호등 (긍정/중립/부정)
+  데이터: Twelve Data → Python 계산 폴백
+
+[4-5. AI 분석 실행 버튼]
+  Quick Look 하단에 배치.
+  클릭 → AI Deep Analysis 시작.
+  Quick Look 데이터 유지 + AI 결과가 아래에 추가.
+  Quick Look에서 수집한 데이터를 AI Agent가 재사용 → API 중복 호출 방지.
+
+
+================================================================================
+5. AI Deep Analysis (심층 분석)
+================================================================================
+
+Agent 5개가 병렬 수집 → 교차 검증 → 종합 판단.
+
+[전체 흐름]
+  Quick Look 데이터 (재사용)
+    → [병렬] News Agent + Data Agent + Macro Agent
+    → Cross-validation Agent
+    → Analyst Agent
+    → 결과: 매수 / 중립 / 매도 + 근거
+
+
+[Agent 1: News Agent]
+
+  역할: 최근 뉴스, 실적 발표, 애널리스트 의견 수집 + 감성 분석
+
+  데이터 소스:
+    1순위: Finnhub Company News + Analyst Recommendations
+    2순위: Web Search (Finnhub에서 못 잡은 최신 속보 보충)
+
+  Web Search 품질 관리:
+    날짜 필터: 최근 7일 이내 기사만 참고
+    출처 우선순위: Reuters, Bloomberg, CNBC, WSJ, Financial Times
+    프롬프트에 명시하여 저품질 소스 배제
+    이유: 검색 결과는 비결정적. Finnhub이 1순위, Web Search는 보충.
+
+  출력:
+  {
+    "ticker": "NVDA",
+    "recent_news": [
+      {"title": "...", "source": "Reuters", "date": "2026-03-24",
+       "sentiment": "positive", "key_point": "AI 칩 수요 사상 최대"}
+    ],
+    "earnings": {
+      "last_quarter": "beat",
+      "eps_actual": 0.82, "eps_expected": 0.75,
+      "surprise": "+9.3%"
+    },
+    "analyst_consensus": {
+      "recommendation": "strong buy", "count": 32,
+      "target_price_avg": 165.00
+    },
+    "overall_sentiment": "bullish",
+    "key_events_upcoming": ["Q1 실적 발표: 2026-04-15"]
+  }
+
+
+[Agent 2: Data Agent]
+
+  역할: 재무 지표 + 기술적 지표 해석
+
+  데이터: Quick Look에서 수집된 데이터 재사용 + 섹터 비교 추가
+
+  출력:
+  {
+    "ticker": "NVDA",
+    "price_position": {
+      "vs_52w_high": "-7.0%",
+      "vs_50ma": "+3.1% (위)",
+      "vs_200ma": "+17.3% (위, 강한 상승 추세)"
+    },
+    "valuation": {
+      "pe": 35.2, "sector_avg_pe": 25,
+      "premium": "+40.8%",
+      "interpretation": "성장 반영해도 약간 비싼 편"
+    },
+    "technicals_summary": {
+      "rsi": {"value": 62, "signal": "중립 (과매수 경계)"},
+      "macd": {"signal": "bullish crossover 3일째"},
+      "volume": {"vs_20d_avg": "+15%"}
+    },
+    "financial_health": {
+      "debt_to_equity": 0.41,
+      "free_cash_flow": "positive, growing"
+    }
+  }
+
+
+[Agent 3: Macro Agent]
+
+  역할: 거시경제 + 섹터 트렌드 + 시장 심리
+
+  데이터: FRED API + Web Search + VIX
+
+  출력:
+  {
+    "fed_rate": "5.25%",
+    "rate_outlook": "2026년 2회 인하 예상",
+    "inflation": "CPI 2.8%",
+    "sector_trend": {
+      "sector": "Semiconductors",
+      "trend": "AI 수요로 강세, 밸류에이션 과열 우려"
+    },
+    "market_sentiment": {"vix": 18.5, "interpretation": "risk-on"},
+    "risk_factors": ["금리 인하 지연", "중국 수출 규제", "AI 버블 우려"]
+  }
+
+
+[Agent 4: Cross-validation Agent]
+
+  역할: 3개 Agent 결과 간 모순, 불일치, 신뢰도 이슈 탐지
+
+  현재 구현:
+    AI Agent 하나가 규칙적 모순과 맥락적 모순을 통합 처리.
+
+  추후 확장:
+    규칙 기반 사전 필터(Python)와 AI 해석 검증을 분리.
+    확정적 체크(RSI > 70 + 뉴스 긍정 = 모순)는 코드로 처리,
+    맥락적 판단만 AI에게 맡겨 호출 절약.
+
+  출력:
+  {
+    "conflicts": [
+      {
+        "between": ["news", "data"],
+        "issue": "뉴스 bullish이지만 RSI 62로 과매수 경계",
+        "interpretation": "단기 조정 가능성, 중기 추세 긍정"
+      }
+    ],
+    "missing_data": [],
+    "overall_data_quality": "high",
+    "confidence_adjustment": "medium으로 하향"
+  }
+
+
+[Agent 5: Analyst Agent]
+
+  역할: 모든 데이터 종합 → 최종 판단
+
+  출력:
+  {
+    "ticker": "NVDA",
+    "recommendation": "HOLD",
+    "confidence": "medium",
+    "score": 65,
+    "reasoning": {
+      "bull_case": ["AI 수요 폭발", "실적 서프라이즈 연속", "기관 자금 유입"],
+      "bear_case": ["PE 35x 고평가", "금리 인하 지연 리스크", "RSI 과매수 경계"]
+    },
+    "catalyst": "Q1 실적 발표 (4/15) — 가이던스가 핵심",
+    "action_summary": "보유자 유지, 신규 진입은 조정 시 매수",
+    "disclaimer": "AI 참고 자료. 투자 판단은 본인 책임."
+  }
+
+
+================================================================================
+6. Sector Screening (섹터 추천)
+================================================================================
+
+섹터 선택 → 해당 섹터 Top 5 종목 추천.
+
+[섹터 분류: 2층 구조]
+
+  1층 — GICS 표준 섹터 (11개, 기본 제공):
+    Information Technology, Health Care, Financials,
+    Consumer Discretionary, Communication Services, Industrials,
+    Consumer Staples, Energy, Utilities, Real Estate, Materials
+    종목 리스트: FMP Stock Screener API (섹터 파라미터로 1회 호출)
+
+  2층 — 커스텀 테마 (JSON 관리, 확장 가능):
+    기본 제공 테마 5개:
+
+    themes.json:
+    {
+      "AI_semiconductor": {
+        "tickers": ["NVDA", "AMD", "AVGO", "TSM", "MRVL", "INTC", "QCOM"],
+        "preset": "large_stable"
+      },
+      "defense": {
+        "tickers": ["LMT", "RTX", "NOC", "GD", "BA", "LHX", "HII"],
+        "preset": "large_stable"
+      },
+      "clean_energy": {
+        "tickers": ["ENPH", "SEDG", "FSLR", "NEE", "PLUG", "RUN"],
+        "preset": "mid_growth"
+      },
+      "cybersecurity": {
+        "tickers": ["CRWD", "PANW", "FTNT", "ZS", "OKTA"],
+        "preset": "mid_growth"
+      },
+      "space": {
+        "tickers": ["RKLB", "ASTS", "LUNR", "BA", "LMT"],
+        "preset": "early_growth"
+      }
+    }
+
+    사용자 커스텀 테마:
+      사용자가 직접 티커 5개 이상 입력 → 프리셋 선택 → themes.json에 저장.
+      신규 테마 추가 시 코드 수정 없음.
+
+
+[3단계 필터 시스템]
+
+  [1단계: 공통 필터] — 모든 섹터 공통, 불량 데이터 제거
+
+    - 일평균 거래량 0 제외 (상장폐지/거래정지 종목)
+    - 주요 재무 데이터 누락 종목 제외
+    - 미국 상장 종목만 (OTC 제외)
+    이유: 이건 "필터"가 아니라 "쓰레기 제거". 없으면 결과에 불량 데이터 혼입.
+
+
+  [2단계: 유형별 프리셋] — 섹터 특성에 맞는 4종 필터
+
+    이유: 모든 섹터에 동일 필터(시총 $10B+, PE 양수)를 적용하면
+    바이오/초기성장 섹터는 전멸하고 빅테크는 전부 통과.
+    섹터 특성을 4가지 유형으로 분류하면 관리 가능하면서 차별화됨.
+    섹터별 완전 맞춤 필터(11+N개)보다 현실적.
+
+    ┌─────────────┬──────────┬──────────┬────────────────┐
+    │ 프리셋      │ 시총     │ 수익성   │ 특수 조건      │
+    ├─────────────┼──────────┼──────────┼────────────────┤
+    │ large_stable│ $50B+    │ PE 양수  │ -              │
+    │ mid_growth  │ $10B+    │ PE 양수  │ -              │
+    │ early_growth│ $2B+     │ 무관     │ 매출 성장 20%+ │
+    │ dividend    │ $5B+     │ PE 양수  │ 배당률 2%+     │
+    └─────────────┴──────────┴──────────┴────────────────┘
+
+    GICS 섹터 → 프리셋 매핑:
+      large_stable:  정보기술, 금융, 통신서비스, 경기소비재
+      mid_growth:    산업재, 에너지, 소재, 필수소비재
+      early_growth:  헬스케어 (바이오)
+      dividend:      유틸리티, 부동산
+
+    커스텀 테마 → 프리셋 매핑:
+      themes.json에 preset 필드로 명시 (위 예시 참조).
+
+
+  [3단계: 적응형 완화] — 통과 종목 수에 따라 자동 조정
+
+    이유: 하드코딩된 기준은 니치 섹터에서 반드시 실패함.
+    "종목이 부족하면 기준을 낮춘다"는 로직 없으면 빈 결과가 나옴.
+
+    통과 10개 이상 → 점수 상위 10개 선정 (정상 진행)
+    통과 5~9개   → 전부 다음 단계(AI 분석)로 넘김
+    통과 3~4개   → 시총 기준 1단계 완화
+                    ($50B → $20B, $10B → $5B, $2B → $1B)
+                    완화 후 재필터링
+    통과 0~2개   → 프리셋 필터 무시, 해당 섹터/테마 시총 상위 10개 선정
+                    UI에 "필터 기준 미달 — 시총 상위 종목 표시" 경고
+
+    완화 사실을 UI에 투명하게 표시하여 사용자가 "왜 이 종목이 나왔는지" 파악 가능.
+
+
+[AI 분석 단계]
+
+  3단계 필터를 통과한 종목(최대 10개)에 대해 AI 축약 분석:
+    뉴스 감성(1줄) + 핵심 재무 + 기술적 신호
+    종목별 점수 → Top 5 선정 + 한 줄 추천 이유
+
+
+[출력]
+  ┌──────┬───────┬──────┬──────────────────────────┐
+  │ 순위 │ 티커  │ 점수 │ 추천 이유                │
+  ├──────┼───────┼──────┼──────────────────────────┤
+  │  1   │ LMT   │ 82   │ NATO 지출 확대, 안정 배당│
+  │  2   │ RTX   │ 78   │ 수주잔고 최대, PE 합리적 │
+  │  ...                                           │
+  └──────┴───────┴──────┴──────────────────────────┘
+  ※ 필터 완화가 적용된 경우 상단에 경고 표시
+  각 티커 클릭 → Quick Look 이동
+
+
+================================================================================
+7. Compare Mode (비교 분석)
+================================================================================
+
+2~3개 종목을 나란히 비교.
+같은 섹터인지 다른 섹터인지 자동 감지하여 분석 방식을 다르게 적용.
+
+[입력]
+  2~3개 티커 동시 입력 (예: NVDA, AMD, INTC)
+  진입 경로:
+    1. 사이드바 "Compare Mode" 선택 → 티커 2~3개 입력
+    2. Quick Look 상단 "+ Compare" 버튼 → 비교 종목 추가
+    3. Sector Screening Top 5에서 체크박스 선택 → "선택 종목 비교"
+
+
+[7-1. 비교 유형 자동 감지]
+
+  코드가 먼저 "이 종목들이 같은 섹터인가?"를 판정.
+  결과에 따라 AI 프롬프트와 분석 구조가 달라짐.
+
+  데이터 소스: yfinance의 sector + industry 필드.
+  Quick Look에서 이미 호출한 데이터를 재사용 → 추가 API 호출 없음.
+
+  예시:
+    NVDA → sector: "Technology", industry: "Semiconductors"
+    AAPL → sector: "Technology", industry: "Consumer Electronics"
+    LMT  → sector: "Industrials", industry: "Aerospace & Defense"
+
+  [4단계 판정 로직]
+
+    Step 1: 각 티커의 sector + industry를 yfinance에서 가져옴.
+
+    Step 2: sector가 다르면 → cross_sector (즉시 판정).
+      예: AAPL(Technology) + LMT(Industrials) → sector부터 다름 → cross_sector.
+
+    Step 3: sector가 전부 같고 industry도 전부 같으면 → same_sector.
+      예: NVDA + AMD + INTC → 전부 Technology / Semiconductors → same_sector.
+
+    Step 4: sector는 같은데 industry가 다르면 → 관련 업종 테이블 확인.
+      관련 업종이면 → same_sector (같은 공급망/생태계이므로 직접 비교 가능).
+      관련 없으면 → cross_sector.
+
+      예: NVDA(Semiconductors) + ASML(Semiconductor Equipment)
+        → 같은 반도체 공급망 → same_sector.
+      예: NVDA(Semiconductors) + AAPL(Consumer Electronics)
+        → 관련 업종 아님 → cross_sector.
+
+  [관련 업종 매핑 테이블]
+
+    JSON 파일로 관리 (related_industries.json).
+    코드 수정 없이 관련 업종 추가/삭제 가능.
+
+    {
+      "Semiconductors": ["Semiconductor Equipment", "Electronic Components"],
+      "Semiconductor Equipment": ["Semiconductors"],
+      "Software—Infrastructure": ["Software—Application", "Information Technology Services"],
+      "Software—Application": ["Software—Infrastructure", "Information Technology Services"],
+      "Banks—Diversified": ["Banks—Regional", "Financial Data & Stock Exchanges"],
+      "Banks—Regional": ["Banks—Diversified"],
+      "Insurance—Diversified": ["Insurance—Life", "Insurance—Property & Casualty"],
+      "Oil & Gas Integrated": ["Oil & Gas E&P", "Oil & Gas Equipment & Services"],
+      "Oil & Gas E&P": ["Oil & Gas Integrated", "Oil & Gas Equipment & Services"],
+      "Drug Manufacturers—General": ["Biotechnology", "Medical Devices"],
+      "Biotechnology": ["Drug Manufacturers—General", "Medical Devices"]
+    }
+
+    테이블에 명시적으로 "관련"이라고 등록된 것만 same_sector.
+    등록 안 된 조합은 전부 cross_sector가 기본값.
+    이유: 모르면 안전한 쪽(섹터 상대 비교)으로 가는 게 오분류 위험을 줄임.
+
+  [엣지 케이스]
+    yfinance에서 sector/industry가 빈 값이면 → "Unknown" 처리 → cross_sector.
+    테이블에 없는 새로운 industry가 나오면 → cross_sector (기본값).
+
+  [판정 결과 예시]
+    NVDA + AMD + INTC       → same_sector (전부 Semiconductors)
+    NVDA + ASML             → same_sector (관련 업종: 반도체 공급망)
+    MSFT + CRM              → same_sector (관련 업종: 소프트웨어)
+    NVDA + AAPL             → cross_sector (같은 Tech이지만 관련 업종 아님)
+    AAPL + LMT + ASML       → cross_sector (sector부터 다름)
+
+
+[7-2. 데이터 비교 (AI 없음, 즉시)]
+
+  비교 유형과 무관하게 공통으로 표시되는 데이터 테이블.
+
+  비교 테이블:
+  ┌────────────┬──────────┬──────────┬──────────┐
+  │            │  NVDA    │  AMD     │  INTC    │
+  ├────────────┼──────────┼──────────┼──────────┤
+  │ Price      │ $142.50  │ $168.30  │ $24.80   │
+  │ Change     │ +2.3%    │ +1.1%    │ -5.2%    │
+  │ Market Cap │ $3.5T    │ $272B    │ $106B    │
+  │ PE         │ 35.2     │ 42.1     │ N/A      │
+  │ Forward PE │ 28.1     │ 32.5     │ 18.2     │
+  │ EPS        │ $4.05    │ $4.00    │ -$0.78   │
+  │ ROE        │ 115%     │ 4.2%     │ -8.1%    │
+  │ D/E        │ 0.41     │ 0.04     │ 0.47     │
+  │ RSI        │ 62       │ 48       │ 28       │
+  │ 52W Range  │ 76-153   │ 108-228  │ 19-52    │
+  └────────────┴──────────┴──────────┴──────────┘
+
+  주가 차트 오버레이:
+    수익률 기준(100 정규화)으로 같은 기간 비교.
+    주가 자체가 아니라 "같은 기간에 누가 더 올랐나"를 보여줌.
+
+  모든 지표에 인라인 툴팁 (ⓘ) 적용.
+  데이터: Quick Look과 동일 API.
+
+
+[7-3. 투자 스타일 분류 기준]
+
+  각 종목을 Growth / Value / Balanced 중 하나로 분류.
+  코드가 숫자 기준으로 1차 분류하고, AI가 맥락을 보고 보정.
+
+  [분류 기준표]
+
+    지표               Growth        Value         Balanced
+    ─────────────────────────────────────────────────────────
+    매출 성장률 (YoY)   20%+          < 10%         10~20%
+    Forward P/E        25+           < 18          18~25
+    PEG ratio          any           N/A 또는 > 3   1.0~2.0
+    배당 수익률         < 0.5%        2%+           0.5~2%
+    EPS 성장률 (YoY)   25%+          < 5%          5~25%
+
+  [분류 로직 (순서 중요)]
+
+    Step 1: Growth 체크 (먼저)
+      IF 매출 성장률 >= 20% AND Forward PE >= 25 → Growth
+      이유: 성장이 압도적이면 PE가 높아도 Growth. NVDA PE 35지만
+      성장 122%이면 "비싼 주식"이 아니라 "성장주"임.
+
+    Step 2: Value 체크
+      IF Forward PE < 18 AND (배당 >= 2% OR PBR < 1.5) → Value
+      이유: Growth가 아닌 종목 중에서 "싼 것"을 골라냄.
+
+    Step 3: 기본값 Balanced
+      위 조건에 안 걸리면 → Balanced
+      이유: 성장도 적당, PE도 적당한 대형 우량주. AAPL, MSFT 등.
+
+    Step 4: AI 보정 (엣지 케이스)
+      코드 분류가 맞는지 AI가 맥락을 보고 검증.
+      예: INTC → 코드가 "Value"로 분류 (Forward PE 18).
+          AI 보정: "Value로 분류되지만 이건 이익이 없어서 PE가 낮은 것.
+          턴어라운드 베팅이지 전통적 가치주가 아님" 경고 추가.
+      AI가 분류를 뒤집을 수 있지만, 뒤집을 때 반드시 이유를 명시.
+
+  [분류 예시]
+    NVDA: 매출 +122%, Forward PE 28, 배당 0.03%  → Growth
+    LMT:  매출 +6%, Forward PE 16, 배당 2.7%     → Value
+    AAPL: 매출 +5%, Forward PE 25, 배당 0.55%    → Balanced
+    TSLA: 매출 +15%, Forward PE 42, 배당 0%      → Growth (PE 25+ 충족)
+    INTC: 매출 -8%, Forward PE 18, 배당 1.2%     → Value (AI 경고 추가)
+
+
+[7-4. AI 비교 분석 — same_sector (같은 섹터)]
+
+  "AI 비교 분석" 버튼 클릭 시 AI 1회 호출.
+
+  같은 섹터이므로 직접 비교 가능.
+  카테고리별로 순위를 매기고 각각 "왜 그 순위인지" 근거를 설명.
+
+  분석 구조:
+    1. 카테고리별 순위 + 근거
+       성장성, 밸류에이션, 재무 건전성, 기술적 포지션
+       각 카테고리에서 종목별 2~3줄 분석
+
+    2. Key Risks
+       종목별 핵심 리스크 2~3개씩 나란히 표시
+       같은 섹터라도 리스크 요인이 다름
+
+    3. 투자 성향별 추천
+       Growth 투자자 → A 종목 + 이유
+       Value 투자자 → B 종목 + 이유
+       Balanced 투자자 → C 종목 + 이유 (또는 "현재 매력 낮음")
+
+    4. 이 분석이 놓칠 수 있는 것
+       다가오는 이벤트 (실적 발표, 신제품, 규제)
+       이유: AI 과신 방지. 이벤트 하나로 순위가 뒤집힐 수 있음.
+
+  출력 형식:
+  {
+    "comparison_type": "same_sector",
+    "sector": "Semiconductors",
+    "categories": [
+      {
+        "name": "Growth potential",
+        "ranking": ["NVDA", "AMD", "INTC"],
+        "analysis": {
+          "NVDA": "Revenue +122% YoY, AI chip monopoly...",
+          "AMD": "Revenue +10%, MI300 gaining but distant second...",
+          "INTC": "Revenue -8%, foundry burning cash..."
+        }
+      }
+    ],
+    "key_risks": {
+      "NVDA": ["China export ban", "Customer concentration"],
+      "AMD": ["CUDA ecosystem moat", "PC segment decline"],
+      "INTC": ["Foundry capex burn", "Technology gap widening"]
+    },
+    "verdict_by_profile": {
+      "growth": {"pick": "NVDA", "reason": "AI dominance, premium justified..."},
+      "value": {"pick": "INTC", "reason": "Low FPE, turnaround bet..."},
+      "balanced": {"pick": "AMD", "reason": "Or wait — currently weakest pick..."}
+    },
+    "blind_spots": "NVDA Q1 earnings Apr 15, AMD MI350 launch, INTC foundry update",
+    "disclaimer": "AI reference. Not advice."
+  }
+
+
+[7-5. AI 비교 분석 — cross_sector (다른 섹터)]
+
+  다른 섹터이므로 직접 비교하면 안 됨.
+  "각자의 환경에서 각자가 얼마나 잘하고 있나"를 비교.
+
+  분석 구조가 같은 섹터와 다른 4가지:
+
+    1. 섹터 맥락 (same_sector에는 없는 항목)
+       각 종목이 속한 섹터가 뭐에 의해 움직이는지 설명.
+       "이 종목들은 서로 다른 시장에서 움직입니다" 전제.
+       예: AAPL → 소비자 지출/혁신 사이클
+           LMT → 국방 예산/지정학
+           ASML → 반도체 투자 사이클/AI 수요
+
+    2. 밸류에이션을 "자기 섹터 평균 대비"로 비교
+       AAPL PE 28을 LMT PE 16과 직접 비교하면 안 됨.
+       소비자전자 평균 PE 25 vs 방산 평균 PE 18이니까.
+       대신: "AAPL은 섹터 대비 +12% 프리미엄, LMT는 -11% 할인"
+       섹터 평균 PE 소스: FMP API 또는 같은 섹터 상위 10개 종목의
+       PE 중앙값을 yfinance로 계산.
+
+    3. 섹터 무관 지표로 비교
+       FCF yield, ROE, D/E, 바이백/배당 규모는 섹터와 무관하게
+       "돈을 얼마나 잘 버는가"를 비교 가능.
+
+    4. 매크로 시나리오별 반응 비교 (same_sector에는 없는 항목)
+       같은 거시경제 환경에서 각 종목이 어떻게 반응하는가.
+       예: "금리 높게 유지되면?" → AAPL 중립, LMT 유리, ASML 불리
+           "경기 침체가 오면?" → AAPL 불리, LMT 방어적, ASML 불리
+       이유: 사용자가 "내 시장 전망에 따라 어떤 종목이 유리한지" 판단 가능.
+
+    5. 포트폴리오 분산 관점
+       "이 3개를 같이 보유하면 분산 효과가 있는가?"
+       상관관계가 낮으면 "자연 분산"이 됨.
+       예: AAPL + LMT + ASML → 소비자 + 방산 + 반도체 장비
+           → 상관관계 낮음 → 분산 효과 높음.
+
+    6. 투자 성향별 추천 (동일)
+       Growth / Value / Balanced
+
+    7. 이 분석이 놓칠 수 있는 것 (동일)
+
+  출력 형식:
+  {
+    "comparison_type": "cross_sector",
+    "sector_context": {
+      "AAPL": {"sector": "Consumer Electronics", "sector_avg_pe": 25,
+               "driver": "Consumer spending, innovation cycles"},
+      "LMT": {"sector": "Aerospace & Defense", "sector_avg_pe": 18,
+              "driver": "Defense budgets, geopolitics"},
+      "ASML": {"sector": "Semiconductor Equipment", "sector_avg_pe": 30,
+               "driver": "Chip capex cycles, AI demand"}
+    },
+    "relative_valuation": {
+      "AAPL": {"pe": 28, "vs_sector": "+12% premium", "justified_by": "ecosystem lock-in"},
+      "LMT": {"pe": 16, "vs_sector": "-11% discount", "justified_by": "slower growth"},
+      "ASML": {"pe": 34, "vs_sector": "+13% premium", "justified_by": "literal monopoly"}
+    },
+    "sector_neutral_metrics": {
+      "AAPL": {"fcf_yield": "3.8%", "roe": "147%", "de": 1.52},
+      "LMT": {"fcf_yield": "4.5%", "roe": "72%", "de": 2.58},
+      "ASML": {"fcf_yield": "2.1%", "roe": "58%", "de": 0.32}
+    },
+    "macro_scenarios": {
+      "rates_stay_high": {"AAPL": "neutral", "LMT": "positive", "ASML": "negative"},
+      "recession": {"AAPL": "negative", "LMT": "defensive", "ASML": "negative"}
+    },
+    "diversification": "Low correlation — owning all 3 provides natural diversification",
+    "verdict_by_profile": {
+      "growth": {"pick": "ASML", "reason": "Monopoly + AI capex tailwind"},
+      "value": {"pick": "LMT", "reason": "Cheapest vs sector, 2.7% dividend"},
+      "balanced": {"pick": "AAPL", "reason": "Quality + buyback, but growth slowing"}
+    },
+    "blind_spots": "AAPL WWDC, LMT F-35 delivery schedule, ASML China export ruling",
+    "disclaimer": "AI reference. Not advice."
+  }
+
+
+[7-6. AI 프롬프트 분기]
+
+  비교 유형에 따라 프롬프트를 다르게 구성:
+
+  same_sector:
+    "같은 섹터 종목을 직접 비교하세요.
+     카테고리별 순위를 매기고 각 순위의 근거를 2~3줄로 설명하세요.
+     종목별 핵심 리스크와 투자 성향별 추천을 포함하세요."
+
+  cross_sector:
+    "다른 섹터 종목입니다. 직접 비교하지 마세요.
+     1) 각 종목의 섹터 맥락을 설명하세요.
+     2) 밸류에이션은 자기 섹터 평균 대비로 비교하세요.
+     3) 섹터 무관 지표(FCF yield, ROE)로 비교하세요.
+     4) 매크로 시나리오별(금리 유지, 경기 침체) 반응을 비교하세요.
+     5) 포트폴리오 분산 관점에서 평가하세요.
+     6) 투자 성향별 추천을 포함하세요."
+
+  AI 호출은 둘 다 1회. 프롬프트 길이와 응답 길이가 다를 뿐.
+  cross_sector가 약간 더 많은 토큰을 사용 ($0.03~0.06 수준).
+
+
+================================================================================
+8. Watchlist (관심 종목)
+================================================================================
+
+사이드바에 관심 종목 리스트.
+
+[기능]
+  종목 추가/삭제
+  현재가 + 등락률 표시
+  클릭 → Quick Look 이동
+
+[간이 알림]
+  일중 ±5% 이상 변동 → 하이라이트 표시
+  예: TSLA +4.2% → 일반 / SMCI +8.2% → 배경 강조
+
+[저장]
+  Streamlit session_state (세션 유지)
+  JSON 파일 영구 저장 (선택)
+
+[추후 확장]
+  AI 분석 이력: "최근 분석: HOLD 65점, 3일 전" 표시
+  단, "분석 시점과 현재가 다를 수 있음" 경고 함께.
+
+
+================================================================================
+9. 초보자 가이드
+================================================================================
+
+[형태 1: 별도 가이드 페이지]
+
+  Streamlit 멀티페이지. 카테고리별 펼치기/접기.
+  난이도 표시: beginner / intermediate / advanced
+
+  카테고리:
+
+  차트 보는 법:
+    - 캔들스틱 차트 (beginner)
+    - 이동평균 MA (beginner)
+    - 거래량 분석 (intermediate)
+
+  핵심 지표:
+    - PER (beginner)
+    - EPS (beginner)
+    - ROE (intermediate)
+    - PEG (intermediate)
+    - D/E (intermediate)
+
+  기술적 지표:
+    - RSI (intermediate)
+    - MACD (advanced)
+    - 볼린저밴드 (advanced)
+
+  시장 개념:
+    - 불/베어 마켓 (beginner)
+    - 섹터 로테이션 (advanced)
+    - VIX (intermediate)
+
+  투자 스타일:
+    - Growth vs Value vs Balanced (beginner)
+      Growth: 빠른 성장에 투자. 비싸도 OK. 배당 없어도 OK.
+      Value: 저평가된 종목에 투자. PE 낮고 배당 있는 안정적 종목.
+      Balanced: 성장과 가치의 균형. 합리적 가격에 적당한 성장.
+      이 프로그램의 Compare Mode에서 사용되는 분류 기준 설명 포함.
+    - GARP 전략 (intermediate)
+      Growth At Reasonable Price. PEG ratio로 판단하는 법.
+
+  각 주제: What(정의) → How(읽는 법) → When(활용) → Example(실제 데이터)
+
+
+[형태 2: 인라인 툴팁]
+
+  Quick Look, Compare Mode의 모든 지표 옆 ⓘ 아이콘.
+  마우스 올리면 짧은 설명 표시.
+  구현: Streamlit st.metric(help="...") 파라미터.
+
+
+================================================================================
+10. 오케스트레이터 설계
+================================================================================
+
+[실행 구조]
+
+  Quick Look 데이터 수집 (API, AI 없음)
+    → [병렬] News Agent + Data Agent + Macro Agent
+    → Cross-validation Agent
+    → Analyst Agent
+    → 결과 표시
+
+[상태 관리]
+
+  analysis_state = {
+    "ticker": "NVDA",
+    "quick_look_data": {...},
+    "agent_results": {
+      "news": {...},
+      "data": {...},
+      "macro": {...}
+    },
+    "agent_status": {
+      "news": "success" | "failed" | "running",
+      "data": "success",
+      "macro": "success"
+    },
+    "cross_validation": {...},
+    "analyst": {...},
+    "errors": []
+  }
+
+[Graceful Degradation 정책]
+
+  3개 병렬 Agent(News, Data, Macro) 중:
+
+  3개 성공:
+    → 정상 진행. confidence 그대로.
+
+  2개 성공, 1개 실패:
+    → 분석 진행.
+    → 실패 영역 "데이터 없음" 표시.
+    → Analyst에게 "N Agent 데이터 없음. 나머지로 판단" 전달.
+    → confidence 한 단계 하향.
+
+  1개만 성공:
+    → 분석 진행. low confidence 고정.
+    → "제한된 데이터로 분석. 신뢰도 낮음" 경고.
+
+  전부 실패:
+    → 분석 중단.
+    → "AI 분석을 수행할 수 없습니다" 표시.
+    → Quick Look 데이터는 유지.
+
+  각 Agent 실패 시: 1회 자동 재시도 (10초 대기 후).
+  재시도 실패 → "failed" 확정.
+
+[Agent별 실패 시 영향]
+
+  News 실패:
+    → 뉴스 감성, 실적, 애널리스트 추천 없음.
+    → "뉴스 동향 미반영" 표시. Data+Macro로 판단.
+
+  Data 실패:
+    → Quick Look 데이터로 일부 대체 가능.
+    → "재무 분석은 Quick Look 수준" 표시.
+
+  Macro 실패:
+    → 금리, CPI, 섹터 트렌드 미반영.
+    → "거시경제 환경 미반영" 표시.
+
+
+================================================================================
+11. UI 구조 (Streamlit)
+================================================================================
+
+[사이드바 — 항상 표시]
+  티커 검색 입력창
+  모드 선택: Quick Look / AI 분석 / 섹터 / 비교 / 가이드
+  Watchlist (등락률 + ±5% 하이라이트)
+  AI 사용량: "오늘 47/100회"
+  면책 조항 링크
+  데이터 지연 표시: "Quotes delayed ~15 min"
+
+[메인 영역 — 상태별]
+
+  티커 미입력:
+    → 기본 화면 (지수 + 급등락 + 뉴스)
+
+  Quick Look:
+    → 시세 헤더 + 차트 + Fundamentals + Technicals
+    → "AI 분석 실행" 버튼
+
+  AI 분석:
+    → Quick Look 유지 + AI 결과 아래 추가
+    → Agent 진행 상태 (5단계)
+    → 실패 Agent 경고 표시
+    → 매수/중립/매도 + 점수 + Bull/Bear
+
+  섹터 스크리닝:
+    → GICS + 커스텀 테마 선택
+    → 1차 필터 → Top 5
+
+  비교 분석:
+    → 2~3 티커 입력
+    → 비교 테이블 + 수익률 차트
+    → "AI 비교 분석" 버튼 (선택)
+
+  가이드:
+    → 카테고리별 펼치기/접기 + 난이도
+
+
+================================================================================
+12. 에러 핸들링
+================================================================================
+
+[원칙]
+  1. 하나의 Agent/API 실패 → 전체 중단하지 않음
+  2. 실패 내용과 영향을 사용자에게 투명하게 표시
+  3. 가능한 한 폴백으로 데이터를 채움
+
+[API 실패]
+  각 API: timeout 15초, 1회 재시도
+  재시도 실패 → 우선순위 테이블(2장) 다음 API 시도
+  전부 실패 → "N/A" 표시
+
+[Agent 실패]
+  10장 Graceful Degradation 정책 적용.
+  Agent: timeout 30초, 1회 재시도 (15초 대기)
+  실패 → agent_status에 "failed" 기록, UI에 표시
+
+[AI JSON 파싱 실패]
+  프롬프트에 "JSON만 응답" 명시
+  실패 → 전체 텍스트를 raw_output 저장
+  Analyst에게 비구조화 데이터 처리 지시
+
+[API 호출 제한]
+  일일 리밋 100회 도달 → AI 비활성화, Quick Look은 유지
+  Finnhub 분당 60회 → 호출 간격 1초 유지
+  Twelve Data 일 800회 → 카운터 관리
+
+[숫자 환각 방지]
+  숫자는 API 값만 사용. AI는 해석만.
+  프롬프트: "아래 데이터를 해석하세요. 새 숫자를 만들지 마세요."
+
+
+================================================================================
+13. 기술 스택
+================================================================================
+
+  역할                   도구                    비용
+  ────────────────────────────────────────────────────
+  AI Agent              Claude API (Sonnet)     월 ~$15-20
+  주가/재무              yfinance               무료
+  시세/뉴스              Finnhub                무료
+  기술적 지표            Twelve Data            무료
+  섹터 스크리닝          FMP                    무료
+  매크로 경제            FRED API               무료
+  폴백                   Alpha Vantage          무료
+  웹 UI                 Streamlit              무료
+  차트                   Plotly                 무료
+  오케스트레이터          Python asyncio         무료
+
+
+================================================================================
+14. 리스크 및 대처
+================================================================================
+
+[리스크 1: 법적 — 투자 자문 해당]
+  대처: 면책 조항 필수. "강력 매수" 대신 "긍정 신호 우세" 표현.
+  Bull/Bear 양면 표시. confidence 점수 투명 공개.
+
+[리스크 2: yfinance 불안정]
+  대처: API 우선순위 테이블(2장) 다중 폴백.
+
+[리스크 3: AI 환각 (잘못된 수치)]
+  대처: 숫자는 API에서만. AI는 해석만.
+  Cross-validation이 Agent 간 수치 불일치 탐지.
+
+[리스크 4: Finnhub 15분 지연]
+  대처: "Data delayed ~15 min" UI 상시 표시.
+
+[리스크 5: API 비용 초과]
+  대처: 일일 AI 100회 하드 리밋 + 사용량 대시보드.
+  Quick Look 데이터 재사용으로 중복 호출 방지.
+
+[리스크 6: Web Search 비결정성]
+  대처: Finnhub 뉴스 1순위, Web Search 보충.
+  최근 7일 필터 + 주요 매체 우선 프롬프트.
+
+[리스크 7: Agent 부분 실패]
+  대처: Graceful Degradation (10장).
+  2/3 성공 → 진행, 1/3 → low confidence, 0/3 → 중단.
+
+[리스크 8: 분석 시점 ≠ 매매 시점]
+  대처: 분석 기준 시점 명시. 예정 이벤트(실적, FOMC) 표시.
+
+
+================================================================================
+15. 추후 확장
+================================================================================
+
+MVP 미포함. 구조적으로 확장 가능한 기능:
+
+  Cross-validation 2단계 분리:
+    규칙 기반(Python) + AI 해석 검증 분리. AI 호출 절약.
+
+  Watchlist AI 분석 이력:
+    이전 분석 결과 JSON 저장 + "시점 경과 경고" 표시.
+
+  실시간 시세:
+    Finnhub WebSocket(유료) 또는 Polygon.io.
+
+  알림 기능:
+    조건 충족 시 이메일/푸시.
+    예: "NVDA RSI 70 돌파", "TSLA 일중 -5%"
+
+  신규 테마 AI 자동 수집:
+    사용자가 테마명만 입력 → AI Agent가 Web Search로 관련 종목 자동 수집
+    → 사용자 확인 후 themes.json에 등록.
+    MVP에서는 사용자가 직접 티커를 입력하는 방식으로 대체.
+
+  신규 테마 자동 프리셋 매핑:
+    수집된 종목의 재무 데이터(시총 중앙값, 흑자 비율, 매출 성장률)를
+    통계적으로 분석하여 4가지 프리셋 중 자동 매핑.
+    예: 시총 중앙값 < $5B + 흑자 비율 < 50% → early_growth 자동 선택.
+    MVP에서는 사용자가 프리셋을 직접 선택하는 방식으로 대체.
+
+
+================================================================================
+END OF DOCUMENT
+================================================================================

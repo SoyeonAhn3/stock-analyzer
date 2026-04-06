@@ -1,0 +1,794 @@
+================================================================================
+AI Stock Analyzer — UI 디자인 계획서
+================================================================================
+작성일: 2026-04-06
+상태: 디자인 기획 완료
+
+
+================================================================================
+1. 디자인 방향
+================================================================================
+
+[테마]
+  라이트 모드 기본.
+  컬러: 파랑 계열(Primary) + 회색 계열(Neutral) + 흰색(Background)
+  톤: 깔끔하고 신뢰감 있는 금융 대시보드.
+  과하게 화려하지 않되, 데이터가 한눈에 들어오는 구조.
+
+[컬러 시스템]
+
+  Primary (파랑):
+    50:  #eff6ff   — 카드 배경 (활성 상태)
+    100: #dbeafe   — 보더 (활성)
+    200: #bfdbfe   — 보더 (호버)
+    300: #93c5fd   — 보조 장식
+    400: #60a5fa   — 아이콘, 차트 라인
+    500: #3b82f6   — 버튼, 강조
+    600: #2563eb   — 버튼 (hover), 활성 모드
+    700: #1d4ed8   — 텍스트 강조, 로고
+
+  Neutral (회색):
+    50:  #f8fafc   — 페이지 배경
+    100: #f1f5f9   — 카드 내부 구분선, 비활성 배경
+    200: #e2e8f0   — 보더 기본
+    300: #cbd5e1   — 비활성 텍스트 아이콘
+    400: #94a3b8   — 보조 텍스트 (라벨, 힌트)
+    500: #64748b   — 보조 텍스트 (설명)
+    600: #475569   — 본문 텍스트
+    700: #334155   — 제목 텍스트
+    800: #1e293b   — 강한 제목
+    900: #0f172a   — 최상위 제목
+
+  Semantic (의미 색상):
+    상승/긍정:  #16a34a (green-600)
+    하락/부정:  #dc2626 (red-600)
+    주의/중립:  #d97706 (amber-600)
+    상승 배경:  #f0fdf4 (green-50)
+    하락 배경:  #fef2f2 (red-50)
+    주의 배경:  #fffbeb (amber-50)
+
+[타이포그래피]
+
+  폰트: DM Sans (1순위), Segoe UI (2순위), sans-serif (폴백)
+  이유: DM Sans는 숫자 가독성이 좋고 금융 대시보드에 적합.
+
+  크기 체계:
+    28~30px  — 주가 (메인 가격 표시)
+    22px     — 페이지 제목
+    16px     — 섹션 제목, 큰 KPI 값
+    14px     — 카드 제목, 테이블 데이터
+    13px     — 본문 텍스트
+    12px     — 보조 텍스트, 차트 라벨
+    11px     — 태그, 뱃지, 힌트 텍스트
+    10px     — 면책 조항, 데이터 지연 표시
+
+  무게:
+    700  — 주가, 티커명, 페이지 제목
+    600  — 카드 제목, KPI 값, 등락률
+    500  — 섹션 소제목, 태그
+    400  — 본문, 설명 텍스트
+
+[간격 체계]
+
+  카드 내부 패딩: 16px
+  카드 간 간격: 12px
+  섹션 간 간격: 16~20px
+  테이블 셀 패딩: 8px
+  인라인 요소 간격: 8~10px
+
+
+================================================================================
+2. 레이아웃 구조
+================================================================================
+
+[전체 레이아웃]
+
+  ┌─────────────┬──────────────────────────────────┐
+  │             │                                  │
+  │  사이드바    │         메인 콘텐츠 영역           │
+  │  (224px)    │         (나머지 전체)              │
+  │  고정       │         스크롤 가능                │
+  │             │                                  │
+  │             │                                  │
+  │             │                                  │
+  │             │                                  │
+  └─────────────┴──────────────────────────────────┘
+
+  사이드바: 고정 224px. 배경 #fff. 우측 보더 1px #e2e8f0.
+  메인: flex:1. 배경 #f8fafc. 패딩 20px 28px. 세로 스크롤.
+  전체 높이: 100vh (뷰포트 전체).
+
+[반응형]
+  Streamlit 기본 레이아웃 사용.
+  모바일 대응은 MVP 범위 밖.
+  최소 권장 너비: 1200px (사이드바 + 메인이 겹치지 않는 수준).
+
+
+================================================================================
+3. 사이드바
+================================================================================
+
+사이드바는 항상 표시. 네비게이션 + 상태 정보.
+
+[구성 요소 — 위에서 아래 순서]
+
+  1. 로고 + 앱 이름
+     "AI Stock Analyzer"
+     색상: Primary 700 (#1d4ed8)
+     크기: 15px, weight 700
+     왼쪽에 작은 바 차트 아이콘 (SVG)
+     하단 마진: 6px
+
+  2. 티커 검색창
+     placeholder: "Search ticker..."
+     배경: Neutral 50 (#f8fafc)
+     보더: Neutral 200 (#e2e8f0)
+     모서리: 8px
+     Enter 키로 검색 실행
+     검색어가 유효하지 않으면 아래에 힌트:
+       "Try: NVDA, AAPL, MSFT, TSLA" (11px, Neutral 400)
+
+  3. 모드 선택 버튼 (5개)
+     Market Overview / Quick Look / Sector Screening / Compare Mode / Beginner's Guide
+     활성: 배경 Primary 600, 텍스트 #fff, weight 600
+     비활성: 배경 투명, 텍스트 Neutral 500, weight 400
+     모서리: 8px
+     패딩: 7px 10px
+     크기: 12px
+     호버: 배경 Neutral 100
+
+  4. "MODE" 라벨
+     텍스트: 10px, Neutral 400, uppercase, letter-spacing 1px, weight 600
+     상단 마진: 8px
+
+  5. Watchlist
+     라벨: "WATCHLIST" (동일 스타일)
+     종목 행:
+       왼쪽: 티커 (12px, weight 600, Neutral 800)
+       오른쪽: 등락률 (11px, weight 600, green/red)
+       클릭 → Quick Look 이동
+       현재 선택 종목: 배경 Primary 50
+       ±5% 이상 변동: 배경 red-50 (#fef2f2), 보더 1px red-200 (#fecaca)
+     패딩: 6px 10px, 모서리: 8px
+
+  6. AI 사용량 (하단 고정)
+     배경: Primary 50
+     모서리: 8px
+     텍스트: "AI usage: 47 / 100" (11px, Primary 700, weight 600)
+     프로그레스 바: 높이 4px
+       배경: Primary 100
+       채움: Primary 500
+       모서리: 2px
+
+     [리밋 근접 시 (80~99회)]
+       프로그레스 바 채움: amber-500
+       텍스트: "AI usage: 85 / 100" (amber-700)
+
+     [리밋 도달 시 (100회)]
+       배경: red-50
+       프로그레스 바 채움: red-500 (100%)
+       텍스트: "Daily AI limit reached" (11px, red-600, weight 600)
+       하단 힌트: "Quick Look still available" (10px, Neutral 400)
+
+  7. 면책 + 지연 표시 (최하단)
+     "Quotes delayed ~15 min"
+     "Not financial advice."
+     크기: 10px, 색상: Neutral 400
+     line-height: 1.5
+
+
+================================================================================
+4. 기본 화면 (Market Overview)
+================================================================================
+
+티커 미입력 시 표시되는 첫 화면.
+
+[페이지 제목]
+  "Market overview" — 22px, weight 700, Neutral 900
+  부제: "Search a ticker to start, or explore today's market"
+    — 13px, Neutral 400, 하단 마진 16px
+
+[시장 지수 카드 (4열 그리드)]
+  4개: S&P 500, NASDAQ, DOW, VIX
+  카드 스타일:
+    배경: #fff
+    보더: 1px Neutral 200
+    모서리: 10px
+    패딩: 16px
+    그림자: 0 1px 3px rgba(0,0,0,.04)
+  내용:
+    라벨: 11px, Neutral 400, uppercase, letter-spacing 0.6
+    값: 20px, weight 700, Neutral 900
+    등락: 13px, weight 600, green/red
+
+[2열 그리드: 급등락 + 뉴스]
+  좌측 (1fr): Today's movers
+  우측 (1.4fr): Market news
+
+  [Today's movers]
+    제목: 14px, weight 600, 하단 마진 8px
+    카드 안에 GAINERS / DECLINERS 구분
+    라벨: 11px, weight 700, green/red, letter-spacing 0.5
+    종목 행:
+      좌: 티커 (13px, weight 600) + 이유 (11px, Neutral 400, margin-left 8px)
+      우: 등락률 (12px, weight 600, green/red)
+      구분선: 1px Neutral 100
+      클릭 가능 (cursor: pointer)
+
+  [Market news]
+    제목: 14px, weight 600
+    뉴스 항목:
+      제목: 13px, weight 500, Neutral 800
+      출처 + 시간: 11px, Neutral 400
+      구분선: 1px Neutral 100
+
+
+================================================================================
+5. Quick Look 화면
+================================================================================
+
+[5-1. 시세 헤더]
+  카드 스타일 (공통 카드와 동일)
+  좌측:
+    첫 줄: 티커 (26px, weight 700) + 회사명 (13px, Neutral 500)
+           + 섹터 태그 (11px, Primary 50 배경, Primary 700 텍스트,
+             패딩 3px 10px, 모서리 6px)
+           + "+ Compare" 버튼 (11px, Neutral 50 배경, dashed 보더
+             Neutral 300, Neutral 500 텍스트, cursor pointer)
+    둘째 줄: 가격 (30px, weight 700) + 등락률 (15px, weight 600, green/red)
+             + 등락액 (11px, Neutral 400)
+    셋째 줄: Vol, Day Range, Pre-market (11px, Neutral 400)
+  우측:
+    미니 스파크라인 차트 (150x48px)
+    색상: 상승이면 green, 하락이면 red
+
+[5-2. 차트 카드]
+  헤더 행:
+    좌: "Price chart" (14px, weight 600)
+    우: 기간 선택 버튼 (1W/1M/3M/6M/1Y/5Y)
+      활성: Primary 600 배경, #fff 텍스트
+      비활성: Neutral 100 배경, Neutral 500 텍스트
+      크기: 11px, 패딩 3px 9px, 모서리 6px
+  차트 영역:
+    SVG viewBox: 520x130
+    그리드 라인: Neutral 100, 0.5px
+    가격 라인: Primary 500, 1.8px
+    영역 그라데이션: Primary 400 → 투명 (opacity 0.15 → 0)
+    MA 라인: amber (#d97706), 0.8px, 대시 (4 3)
+    MA 라벨: 8px, amber
+
+[5-3. Fundamentals / Technicals 탭]
+  탭 버튼:
+    활성: #fff 배경, Primary 700 텍스트, weight 600,
+          보더 1px Neutral 200, 그림자 0 1px 3px rgba(0,0,0,.04)
+    비활성: 투명, Neutral 500, weight 400, 보더 1px 투명
+    크기: 13px, 패딩 8px 16px, 모서리 8px
+
+  [Fundamentals 내용]
+    3열 그리드, 간격 14px
+    각 항목:
+      라벨: 11px, Neutral 400, uppercase, letter-spacing 0.6, weight 500
+             + 인라인 툴팁 ⓘ
+      값: 16px, weight 600, Neutral 800
+
+  [Technicals 내용]
+    리스트 형태 (행별)
+    각 행:
+      좌: 지표명 (13px, Neutral 500) + 인라인 툴팁
+      우: 값 (14px, weight 700) + 신호 뱃지
+    신호 뱃지:
+      긍정: green-50 배경, green 텍스트
+      부정: red-50 배경, red 텍스트
+      중립: amber-50 배경, amber 텍스트
+      크기: 12px, weight 600, 패딩 2px 8px, 모서리 5px
+    구분선: 1px Neutral 100
+
+[5-4. 인라인 툴팁 (ⓘ)]
+  트리거: 물음표 아이콘 (10px, Neutral 400, Neutral 100 배경,
+          원형 15x15px, weight 600)
+  팝업:
+    위치: 아이콘 위 22px, 왼쪽 -100px
+    너비: 250px
+    배경: Neutral 800 (#1e293b) — 다크 배경으로 본문과 구분
+    모서리: 8px
+    패딩: 10px 12px
+    텍스트: 11px, Neutral 200 (#e2e8f0), line-height 1.7
+    그림자: 0 8px 30px rgba(0,0,0,.25)
+    z-index: 999
+  표시: 마우스 호버 시 나타남, 벗어나면 사라짐
+
+[5-5. AI 분석 실행 버튼]
+  배경: 그라데이션 (135deg, Primary 600 → Primary 700)
+  보더: 없음
+  모서리: 10px
+  패딩: 16px
+  텍스트:
+    제목: 15px, weight 700, #fff
+    부제: 12px, rgba(255,255,255,.7)
+  전체 너비, 가운데 정렬
+  cursor: pointer
+
+  [리밋 도달 시 비활성 상태]
+    배경: Neutral 200 (그라데이션 해제)
+    텍스트:
+      제목: "AI analysis unavailable" (15px, weight 700, Neutral 400)
+      부제: "Daily limit reached (100/100)" (12px, Neutral 400)
+    cursor: not-allowed
+    호버 효과 없음
+
+
+================================================================================
+6. AI 분석 결과 화면
+================================================================================
+
+Quick Look 아래에 추가로 표시됨.
+
+[6-1. Agent 진행 상태]
+  카드 안에 5줄 리스트
+  각 줄:
+    원형 인디케이터 (20x20px):
+      미실행: 보더 2px Primary 400, 배경 투명
+      진행 중: 보더 2px Primary 400, opacity 0.7
+      완료: 배경 green, 보더 2px green, "✓" 흰색 10px
+      실패: 배경 red, 보더 2px red, "✗" 흰색 10px
+    텍스트: 12px, Neutral 700
+    진행 중 표시: "running..." (11px, Primary 500)
+    opacity: 완료 1.0, 진행 중 0.7, 대기 0.3
+
+[6-2. 판정 결과 헤더]
+  카드 보더: Primary 200 (강조)
+  상단 행:
+    좌: "AI analysis result" (16px, weight 700)
+    우: 판정 뱃지 + 점수
+      판정 뱃지: 28px, weight 800
+        BUY: green, green-50 배경
+        HOLD: amber, amber-50 배경
+        SELL: red, red-50 배경
+        패딩 4px 16px, 모서리 8px
+      점수: 22px, weight 700 + "/100" (12px, Neutral 400)
+      confidence: 10px, Neutral 400
+
+[6-3. Bull / Bear Case]
+  2열 그리드, 간격 12px
+
+  Bull Case 카드:
+    배경: green-50 (#f0fdf4)
+    보더: 1px green-200 (#bbf7d0)
+    모서리: 8px, 패딩 12px
+    제목: "BULL CASE" — 12px, weight 700, green
+    항목: "• ..." — 12px, green-800 (#166534)
+
+  Bear Case 카드:
+    배경: red-50 (#fef2f2)
+    보더: 1px red-200 (#fecaca)
+    제목: "BEAR CASE" — 12px, weight 700, red
+    항목: 12px, red-900 (#991b1b)
+
+[6-4. Catalyst]
+  배경: amber-50 (#fffbeb)
+  보더: 1px amber-200 (#fde68a)
+  모서리: 8px, 패딩 12px
+  제목: "CATALYST" — 11px, weight 700, amber
+  내용: 12px, amber-900 (#92400e)
+
+[6-5. Action Summary]
+  배경: Primary 50
+  보더: 1px Primary 100
+  제목: "ACTION SUMMARY" — 11px, weight 700, Primary 700
+  내용: 12px, Primary 800 (#1e40af)
+
+[6-6. 면책 조항]
+  상단 보더: 1px Neutral 100
+  패딩 상단: 10px, 마진 상단: 8px
+  텍스트: 10px, Neutral 400, 가운데 정렬
+
+[6-7. Agent 실패 시 경고]
+  실패한 Agent가 있으면 결과 상단에 표시
+  배경: amber-50
+  보더: 1px amber-200
+  아이콘: ⚠ (amber)
+  텍스트: "News Agent 데이터 없음. 뉴스 동향이 미반영되었습니다."
+    12px, amber-900
+  confidence 하향 표시: "(confidence: medium → low)"
+
+
+================================================================================
+7. Compare Mode 화면
+================================================================================
+
+[7-1. 비교 바]
+  카드 스타일, 패딩 10px
+  가로 배치 (flex, gap 8px, wrap)
+  "Comparing:" 라벨 (12px, Neutral 500, weight 500)
+  기준 종목: Primary 50 배경, Primary 700 텍스트, weight 700,
+             패딩 3px 10px, 모서리 6px
+  비교 종목: Neutral 100 배경, Neutral 800 텍스트, weight 600
+             + "×" 버튼 (Neutral 400, cursor pointer)
+  추가 입력: 100px 너비 input, 보더 1px Neutral 200, 12px
+  최대 3종목 (기준 1 + 비교 2)
+
+[7-2. 비교 테이블]
+  카드 안 테이블
+  제목: "Comparison table" (14px, weight 600)
+
+  테이블 헤더:
+    배경: 없음
+    보더 하단: 2px Primary 200
+    티커명: weight 700, 기준 종목은 Primary 700 색상
+    "Metric" 열: Neutral 400, weight 500
+
+  테이블 행:
+    구분선: 1px Neutral 100
+    왼쪽 Metric 열: Neutral 500, weight 500 + 인라인 툴팁
+    데이터 열: weight 500, 우측 정렬
+    등락률 셀: green/red, weight 600
+    RSI 셀: 값에 따라 색상 적용 (green/amber/red)
+
+  셀 패딩: 8px
+
+[7-3. 수익률 비교 차트]
+  같은 기간 정규화 차트 (100 기준)
+  종목별 다른 색상:
+    기준 종목: Primary 500
+    비교 종목 1: amber (#d97706)
+    비교 종목 2: teal (#0d9488)
+  범례: 차트 하단에 색상 + 티커 + 수익률
+
+[7-4. 비교 유형 표시]
+  표시 타이밍: 비교 종목이 2개 이상 확정된 즉시 자동 표시 (AI 호출 전).
+              yfinance sector 필드로 판정 (Quick Look 데이터 재사용, 추가 API 없음).
+
+  same_sector일 때:
+    비교 바 아래에 파란 배지:
+    배경: Primary 50
+    보더: 1px Primary 100
+    좌측 아이콘: "⚡" (12px)
+    텍스트: "Same sector — direct comparison available" (12px, Primary 700)
+
+  cross_sector일 때:
+    비교 바 아래에 노란 배지:
+    배경: amber-50
+    보더: 1px amber-200
+    좌측 아이콘: "⚠" (12px, amber-600)
+    텍스트: "Different sectors detected — metrics compared to each stock's
+            own sector average" (12px, amber-900)
+
+  판정 불가 시 (sector 데이터 누락):
+    비교 바 아래에 회색 배지:
+    배경: Neutral 50
+    보더: 1px Neutral 200
+    텍스트: "Sector data unavailable — using cross-sector analysis"
+            (12px, Neutral 500)
+
+[7-5. AI 비교 분석 버튼]
+  5-5 AI 버튼과 동일 스타일
+  텍스트: "AI comparative analysis"
+  부제: "Compare NVDA vs AMD vs INTC — 1 AI call"
+
+[7-6. AI 비교 결과 — same_sector]
+  카테고리별 카드:
+    카테고리 라벨: 12px, weight 600, Primary 600, Primary 50 배경,
+                  패딩 4px 10px, 모서리 6px
+    3열 카드 (종목별):
+      배경: Neutral 50
+      모서리: 8px, 패딩 10px
+      보더: 1px Neutral 100
+      순위 뱃지: 11px, weight 600
+        1st: green-50 배경, green 텍스트
+        2nd: amber-50 배경, amber 텍스트
+        3rd: red-50 배경, red 텍스트
+      티커: 13px, weight 700
+      분석: 12px, Neutral 600, line-height 1.6
+      프로그레스 바 (선택): 높이 6px, 색상은 순위에 따라
+
+  Key Risks 섹션:
+    3열 카드, 각 종목별 리스크 2~3개 bullet
+
+  투자 성향별 추천:
+    배경: Primary 50
+    보더: 1px Primary 100
+    제목: "Investment verdict by profile" (12px, weight 700, Primary 700)
+    Growth / Value / Balanced 각 줄에 추천 종목 + 이유
+
+  Blind spots:
+    배경: amber-50, 보더 1px amber-200
+    제목: "What this analysis might miss" (11px, weight 700, amber)
+    내용: 12px, amber-900
+
+[7-7. AI 비교 결과 — cross_sector]
+  same_sector와 유사하되 추가 섹션:
+
+  Sector Context:
+    3열 카드, 각 종목의 섹터 + 드라이버 설명
+
+  Relative Valuation:
+    각 종목의 PE vs 섹터 평균 표시
+    할인이면 green ("−11% discount")
+    프리미엄이면 amber ("+12% premium")
+
+  Sector-neutral Metrics:
+    FCF yield, ROE, D/E 비교 (테이블 또는 카드)
+
+  Macro Scenarios:
+    2열 시나리오 카드 ("If rates stay high", "If recession hits")
+    각 카드 안에 종목별 반응 (positive/neutral/negative 색상)
+
+  Diversification:
+    한 줄 텍스트: "Low correlation — natural diversification" 등
+
+  나머지(투자 성향, blind spots)는 same_sector와 동일.
+
+
+================================================================================
+8. Sector Screening 화면
+================================================================================
+
+[섹터 선택 영역]
+
+  GICS Sectors 라벨: 12px, weight 600, Neutral 500
+  버튼 그리드 (flex wrap, gap 6px):
+    활성: Primary 600 배경, #fff 텍스트
+    비활성: #fff 배경, Neutral 500 텍스트, 보더 1px Neutral 200
+    크기: 12px, weight 500, 패딩 6px 14px, 모서리 8px
+
+  Custom Themes 라벨: 동일
+  테마 버튼:
+    활성: Primary 700 배경, #fff 텍스트
+    비활성: #fff 배경, Primary 700 텍스트, 보더 1px Primary 200
+    이유: GICS와 시각적으로 구분 (GICS = 600, 테마 = 700)
+
+  "+ New Theme" 버튼:
+    테마 버튼 행의 맨 뒤에 배치
+    배경: 투명
+    보더: 1px dashed Neutral 300
+    텍스트: "+ New Theme" (12px, Neutral 400, weight 500)
+    모서리: 8px
+    패딩: 6px 14px
+    호버: 배경 Neutral 50, 보더 Primary 300, 텍스트 Primary 600
+    cursor: pointer
+
+[커스텀 테마 생성 폼]
+  "+ New Theme" 클릭 시 섹터 선택 영역 아래에 카드로 펼쳐짐.
+  카드 스타일 (공통) + 보더 Primary 200 (강조)
+
+  테마명 입력:
+    라벨: "Theme name" (11px, Neutral 400, uppercase, letter-spacing 0.6)
+    input: 전체 너비, 배경 Neutral 50, 보더 1px Neutral 200,
+           모서리 8px, 패딩 8px 12px, 13px
+    placeholder: "e.g. Quantum Computing" (Neutral 300)
+
+  티커 입력:
+    라벨: "Tickers (min 5)" (11px, Neutral 400)
+    input: 전체 너비, 동일 스타일
+    placeholder: "e.g. IONQ, RGTI, QBTS, ARQQ, QUBT"
+    입력 완료된 티커는 태그로 변환:
+      배경: Primary 50, 텍스트: Primary 700, 12px, weight 500
+      패딩 3px 8px, 모서리 6px
+      "×" 버튼: Neutral 400, cursor pointer
+    5개 미만 시 하단 힌트:
+      "Enter at least 5 tickers" (11px, amber-600)
+
+  프리셋 선택:
+    라벨: "Filter preset" (11px, Neutral 400)
+    4개 라디오 버튼 (가로 배치, flex wrap, gap 8px):
+      "Large stable ($50B+)"
+      "Mid growth ($10B+)"
+      "Early growth ($2B+)"
+      "Dividend ($5B+, 2%+)"
+    활성: Primary 50 배경, Primary 700 텍스트, 보더 1px Primary 200
+    비활성: #fff 배경, Neutral 500 텍스트, 보더 1px Neutral 200
+    크기: 11px, weight 500, 패딩 5px 12px, 모서리 6px
+
+  버튼 행 (우측 정렬, gap 8px):
+    "Cancel": Secondary 버튼 스타일
+    "Create Theme": Primary 버튼 스타일, 12px
+    티커 5개 미만 시 "Create Theme" 비활성:
+      배경: Neutral 200, 텍스트: Neutral 400, cursor: not-allowed
+
+[분석 진행 표시]
+  카드 안에:
+    스피너 (CSS animation: 원형 보더 회전)
+    "Analyzing {섹터명}..." (13px, Primary 600)
+    "Stage 1: Financial filter → Stage 2: AI analysis" (12px, Neutral 400)
+
+[필터 완화 경고]
+  3단계 적응형 완화가 작동했을 때 결과 상단에 표시
+  배경: amber-50
+  보더: 1px amber-200
+  텍스트: "필터 기준 미달 — 시총 상위 종목 표시" (12px, amber-900)
+
+[Top 5 결과]
+  제목: "Top 5 — {섹터명}" (14px, weight 600)
+  종목 행:
+    좌: 체크박스 (16x16px)
+      미선택: 보더 1.5px Neutral 300, 배경 #fff, 모서리 4px
+      선택: 배경 Primary 600, 보더 1.5px Primary 600, "✓" #fff 10px
+    좌2: 순위 원형 (28x28px)
+      배경: 그라데이션 (Primary 500 → Primary 700)
+      텍스트: 13px, weight 700, #fff
+    중: 티커 (14px, weight 700) + Score (12px, green, weight 600)
+        추천 이유 (12px, Neutral 500)
+    우: "→" 화살표 (14px, Neutral 300)
+    구분선: 1px Neutral 100
+    클릭 (화살표 또는 종목명) → Quick Look 이동
+    체크박스 클릭 → 종목 선택 (Compare 용)
+
+  [선택 종목 비교 버튼]
+    체크박스 2개 이상 선택 시 Top 5 하단에 표시 (slide-up 등장)
+    배경: Primary 600
+    텍스트: "Compare selected (2)" (13px, weight 600, #fff)
+    모서리: 8px, 패딩 10px 20px
+    가운데 정렬
+    클릭 → Compare Mode로 전환 (선택된 종목을 비교 대상으로 전달)
+    체크박스 0~1개 시 버튼 숨김
+
+  하단 면책: 10px, Neutral 400, 가운데 정렬
+
+
+================================================================================
+9. Beginner's Guide 화면
+================================================================================
+
+[페이지 제목]
+  "Beginner's guide" — 22px, weight 700
+  부제: "Click any topic to learn more" — 13px, Neutral 400
+
+[카테고리 구분]
+  카테고리명: 14px, weight 600
+  하단 보더: 1px Neutral 200
+  하단 마진: 8px
+
+[주제 카드 (펼치기/접기)]
+  접힌 상태:
+    카드 스타일 (공통)
+    패딩: 12px
+    좌측: 주제명 (13px, weight 600) + 설명 (11px, Neutral 400)
+    우측: 난이도 뱃지 + 화살표
+    화살표: "▶" (11px, Neutral 300), 펼치면 90도 회전
+
+  난이도 뱃지:
+    beginner: green-50 배경, green 텍스트
+    intermediate: amber-50 배경, amber 텍스트
+    advanced: Primary 50 배경, Primary 600 텍스트
+    크기: 10px, weight 600, 패딩 2px 10px, 모서리 5px
+
+  펼친 상태:
+    카드 아래에 내용 영역
+    배경: Neutral 50 (#f8fafc)
+    모서리: 8px
+    패딩: 14px
+    왼쪽 보더: 3px Primary 400
+    왼쪽 마진: 12px
+    텍스트: 12px, Neutral 700, line-height 1.7, pre-wrap
+
+
+================================================================================
+10. 공통 컴포넌트
+================================================================================
+
+[카드]
+  배경: #fff
+  보더: 1px Neutral 200 (#e2e8f0)
+  모서리: 10px
+  패딩: 16px
+  하단 마진: 12px
+  그림자: 0 1px 3px rgba(0,0,0,.04)
+
+[버튼 — Primary]
+  배경: 그라데이션 (135deg, Primary 600 → Primary 700)
+  텍스트: #fff
+  모서리: 10px (큰 버튼) / 8px (작은 버튼)
+  호버: opacity 0.9
+  cursor: pointer
+
+[버튼 — Secondary]
+  배경: #fff 또는 Neutral 100
+  텍스트: Neutral 500 또는 Primary 700
+  보더: 1px Neutral 200
+  모서리: 8px
+  호버: 배경 Neutral 50
+
+[태그/뱃지]
+  크기: 11px, weight 500~600
+  패딩: 3px 10px 또는 2px 8px
+  모서리: 6px (태그) / 4px (뱃지)
+  배경+텍스트: 같은 색상 계열 (50 배경 + 700 텍스트)
+
+[구분선]
+  색상: Neutral 100 (#f1f5f9)
+  두께: 1px
+
+[프로그레스 바]
+  높이: 4~6px
+  배경: Neutral 200 또는 해당 색상 100
+  채움: 해당 색상 500
+  모서리: 2~3px
+
+[스피너]
+  크기: 16x16px
+  보더: 2px Primary 500, 상단만 투명
+  애니메이션: rotate 1s linear infinite
+
+[미니 스파크라인]
+  크기: 140~150px x 40~48px
+  선: 1.5px, strokeLinejoin round
+  색상: 상승이면 green, 하락이면 red
+  배경: 없음 (투명)
+
+
+================================================================================
+11. 상태별 화면 전환
+================================================================================
+
+[화면 전환 매트릭스]
+
+  현재 상태          사용자 행동               결과 화면
+  ──────────────────────────────────────────────────────────
+  기본 화면          티커 검색 Enter           Quick Look
+  기본 화면          Watchlist 종목 클릭       Quick Look
+  기본 화면          급등락 종목 클릭          Quick Look
+  기본 화면          Sector 모드 선택          Sector Screening
+  기본 화면          Guide 모드 선택           Beginner's Guide
+  Quick Look         "AI 분석 실행" 클릭       Quick Look + AI 결과
+  Quick Look         "+ Compare" 클릭          Compare Mode (기준 종목 유지)
+  Quick Look         다른 티커 검색            새 Quick Look
+  Compare Mode       "AI 비교 분석" 클릭       Compare + AI 비교 결과
+  Compare Mode       비교 종목 "×" 전부 제거    Quick Look으로 복귀
+  Sector Screening   Top 5 종목 클릭           Quick Look
+  Guide              모드 전환                 해당 모드
+  전체               사이드바 모드 버튼 클릭    해당 모드
+
+[Quick Look ↔ Compare 전환]
+  Quick Look에서 "+ Compare" 버튼 → Compare Mode로 전환
+  기존 Quick Look 데이터 유지 + 비교 바 + 비교 종목 추가 UI 표시
+  비교 종목이 0개가 되면 → Quick Look으로 자동 복귀
+  이 전환에서 페이지 리로드 없음 (Streamlit session_state로 관리)
+
+
+================================================================================
+12. 데이터 로딩 상태
+================================================================================
+
+[Quick Look 로딩]
+  차트 영역: Neutral 100 배경에 "Loading..." 텍스트 (Neutral 400)
+  지표 영역: 값 자리에 "—" 표시 (Neutral 300)
+  로딩 완료 후 값으로 교체
+
+[AI 분석 로딩]
+  6-1 Agent 진행 상태 표시 (5단계)
+  각 Agent 완료 시 체크마크 전환 (단계별 시각 피드백)
+
+[Sector Screening 로딩]
+  스피너 + "Analyzing {섹터}..." 텍스트
+  Stage 1 / Stage 2 표시
+
+[API 실패 시]
+  해당 카드에 경고 배너 표시
+  배경: amber-50, 보더: amber-200
+  "데이터를 불러올 수 없습니다. 잠시 후 다시 시도해주세요."
+  Quick Look의 다른 섹션은 정상 표시 (부분 실패 허용)
+
+
+================================================================================
+13. 면책 조항 배치
+================================================================================
+
+면책 조항은 다음 위치에 반복 배치:
+
+  1. 사이드바 최하단 (항상 보임): 축약 1줄
+  2. AI 분석 결과 하단: 전체 문구
+  3. AI 비교 분석 결과 하단: 전체 문구
+  4. Sector Screening 결과 하단: 축약 1줄
+  5. 판정 뱃지(BUY/HOLD/SELL) 바로 아래: confidence 표시
+
+  축약: "AI-generated reference. Not financial advice."
+  전체: "This analysis is AI-generated reference material. Not financial advice.
+         Investment decisions are your responsibility."
+
+  스타일: 10px, Neutral 400, 가운데 정렬
+  상단 보더: 1px Neutral 100 (구분선)
+
+
+================================================================================
+END OF DOCUMENT
+================================================================================
