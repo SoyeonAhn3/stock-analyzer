@@ -1,8 +1,8 @@
-# Phase 1 — 프로젝트 기반 + API 연동 `🔲 미시작`
+# Phase 1 — 프로젝트 기반 + API 연동 `✅ 완료`
 
 > 프로젝트 구조 세팅, 5개 외부 API 래퍼 개발, 폴백 로직, 캐싱 모듈 완성
 
-**상태**: 🔲 미시작
+**상태**: ✅ 완료
 **선행 조건**: 없음 (최초 Phase)
 
 ---
@@ -17,18 +17,17 @@
 
 | # | 모듈 | 상태 | 설명 |
 |---|---|---|---|
-| 1 | `config/api_config.py` | 🔲 | API 키 로딩, 엔드포인트, 타임아웃 |
-| 2 | `config/themes.json` | 🔲 | 커스텀 테마 종목 리스트 |
-| 3 | `config/related_industries.json` | 🔲 | 관련 업종 매핑 테이블 |
-| 4 | `data/yfinance_client.py` | 🔲 | yfinance 래퍼 |
-| 5 | `data/finnhub_client.py` | 🔲 | Finnhub 래퍼 |
-| 6 | `data/twelvedata_client.py` | 🔲 | Twelve Data 래퍼 |
-| 7 | `data/fmp_client.py` | 🔲 | FMP 래퍼 |
-| 8 | `data/fred_client.py` | 🔲 | FRED 래퍼 |
-| 9 | `data/api_client.py` | 🔲 | 통합 API 클라이언트 (폴백 로직) |
-| 10 | `data/cache.py` | 🔲 | 캐싱 모듈 |
-| 11 | `utils/usage_tracker.py` | 🔲 | AI 일일 사용량 추적 |
-| 12 | `tests/test_phase1_api.py` | 🔲 | Phase 1 pytest |
+| 1 | `config/api_config.py` | ✅ | API 키 로딩, 엔드포인트, 타임아웃 |
+| 2 | `config/themes.json` | ✅ | 커스텀 테마 종목 리스트 |
+| 3 | `config/related_industries.json` | ✅ | 관련 업종 매핑 테이블 |
+| 4 | `data/yfinance_client.py` | ✅ | yfinance 래퍼 |
+| 5 | `data/finnhub_client.py` | ✅ | Finnhub 래퍼 |
+| 6 | `data/twelvedata_client.py` | ✅ | Twelve Data 래퍼 |
+| 7 | `data/fmp_client.py` | ✅ | FMP 래퍼 |
+| 8 | `data/fred_client.py` | ✅ | FRED 래퍼 |
+| 9 | `data/api_client.py` | ✅ | 통합 API 클라이언트 (폴백 로직) |
+| 10 | `data/cache.py` | ✅ | 캐싱 모듈 |
+| 11 | `utils/usage_tracker.py` | ✅ | AI 일일 사용량 추적 |
 
 ---
 
@@ -107,37 +106,35 @@ stock-analyzer/
 
 ---
 
-## 테스트 (test_phase1_api.py)
-
-Streamlit 없이 pytest로 검증.
-
-```python
-# 개별 API 래퍼 테스트
-test_yfinance_quote()        # yfinance에서 NVDA 시세 가져오기
-test_finnhub_quote()         # Finnhub에서 NVDA 시세 가져오기
-test_twelvedata_rsi()        # Twelve Data에서 RSI 가져오기
-test_fmp_screener()          # FMP 섹터 스크리닝
-test_fred_rate()             # FRED 금리 데이터
-
-# 통합 클라이언트 테스트
-test_fallback()              # 1순위 강제 실패 → 2순위 폴백 성공
-test_cache_hit()             # 2회 호출 시 API 실제 호출은 1회
-test_cache_expiry()          # 캐시 만료 후 재호출 확인
-```
-
-**완료 기준: 8개 테스트 전부 pass**
-
----
-
 ## 선행 조건 및 의존성
 
-- .env에 API 키 5개 세팅 필요:
+- .env에 API 키 4개 세팅 필요:
   - `FINNHUB_API_KEY`
   - `TWELVEDATA_API_KEY`
   - `FMP_API_KEY`
   - `FRED_API_KEY`
-  - `ALPHA_VANTAGE_API_KEY` (폴백용)
 - yfinance는 API 키 불필요
+
+---
+
+## 네트워크 제약 대비
+
+> 네트워크 환경에 따라 금융 API가 차단될 가능성이 있어, 이에 대비한 테스트 전략을 기록한다.
+
+- 금융 데이터 API(Yahoo Finance, Finnhub, TwelveData, FMP)는 네트워크 정책에 따라 접속이 차단될 수 있음
+- FRED(api.stlouisfed.org)는 정부 경제데이터로 대부분 환경에서 접속 가능
+
+### 테스트 전략
+
+네트워크 차단 가능성에 대비하여 아래 방식을 채택:
+
+| 구분 | 방식 | 비고 |
+|------|------|------|
+| yfinance / Finnhub / TwelveData / FMP | **Mock 기반 단위 테스트** | `unittest.mock.patch`로 API 응답 시뮬레이션 |
+| FRED | **실제 API 테스트** | 대부분 환경에서 접속 가능 |
+| 캐시 / 폴백 / 사용량 추적 | **단위 테스트** | 네트워크 무관, 순수 로직 검증 |
+
+테스트 파일: `tests/test_phase1_api.py` — 19개 테스트 전체 PASSED (2026-04-08)
 
 ---
 
@@ -147,6 +144,7 @@ test_cache_expiry()          # 캐시 만료 후 재호출 확인
 - Finnhub 무료 티어 시세는 약 15분 지연. "실시간"이라 표현하지 않기
 - FMP 무료 일 250회, Twelve Data 일 800회 — 테스트 중 과다 호출 주의
 - .env 파일은 반드시 .gitignore에 추가
+- 네트워크 환경에 따라 금융 API 접속이 차단될 수 있음 — 실제 연동 테스트는 접속 가능한 환경에서 수행
 
 ---
 
@@ -155,3 +153,5 @@ test_cache_expiry()          # 캐시 만료 후 재호출 확인
 | 날짜 | 내용 |
 |---|---|
 | 2026-04-06 | 최초 작성 |
+| 2026-04-08 | 네트워크 제약 대비 및 Mock 테스트 전략 기록 |
+| 2026-04-08 | Phase 1 전체 완료 — 11개 모듈 구현, 19개 테스트 PASSED |

@@ -1,0 +1,9 @@
+{
+  "AI 반도체": ["NVDA", "AMD", "AVGO", "MRVL", "INTC"],
+  "빅테크": ["AAPL", "MSFT", "GOOGL", "AMZN", "META"],
+  "전기차": ["TSLA", "RIVN", "LCID", "NIO", "LI"],
+  "헬스케어": ["UNH", "JNJ", "LLY", "PFE", "ABBV"],
+  "금융": ["JPM", "BAC", "GS", "MS", "WFC"],
+  "에너지": ["XOM", "CVX", "COP", "SLB", "EOG"],
+  "방산": ["LMT", "RTX", "NOC", "GD", "BA"]
+}

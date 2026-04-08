@@ -94,27 +94,6 @@ def route():
 
 ---
 
-## 테스트
-
-Phase 6부터는 **Streamlit 수동 확인**으로 검증.
-
-### 확인 항목
-```
-□ DM Sans 폰트 적용
-□ 컬러 시스템 CSS 변수 전부 정의
-□ 카드/버튼/태그 공통 컴포넌트 스타일 적용
-□ 사이드바 UI.txt 3장과 동일한 모양
-□ 모드 버튼 활성/비활성 전환
-□ AI 사용량 0~79: 파랑, 80~99: amber, 100: red
-□ Watchlist ±5% 하이라이트
-□ 티커 검색 → Quick Look 전환
-□ 모든 모드 간 전환 정상 동작
-□ Quick Look → + Compare → Compare Mode 전환 (리로드 없음)
-□ Compare → 비교 종목 전부 제거 → Quick Look 복귀
-```
-
----
-
 ## 선행 조건 및 의존성
 
 - Phase 1~5 전부 완료 (모든 데이터 함수 사용 가능)

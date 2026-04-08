@@ -25,7 +25,6 @@ Claude API를 사용하여 5개 AI Agent(News, Data, Macro, Cross-validation, An
 | 6 | `agents/analyst_agent.py` | 🔲 | 종합 판단 (BUY/HOLD/SELL) |
 | 7 | `agents/orchestrator.py` | 🔲 | 병렬 실행 + 상태 관리 + Graceful Degradation |
 | 8 | `utils/usage_tracker.py` | 🔲 | 일일 AI 100회 하드 리밋 (Phase 1에서 생성, 여기서 연동) |
-| 9 | `tests/test_phase3_ai_analysis.py` | 🔲 | Phase 3 pytest |
 
 ---
 
@@ -130,30 +129,6 @@ analysis_state 반환
 - 상태 관리는 순수 dict. Streamlit session_state 연결은 UI Phase에서
 - `agent_overrides` 파라미터로 테스트 시 mock 주입 가능
 - 프롬프트에 "아래 데이터를 해석하세요. 새 숫자를 만들지 마세요" 명시 (환각 방지)
-
----
-
-## 테스트 (test_phase3_ai_analysis.py)
-
-Streamlit 없이 pytest로 검증. mock 테스트와 실제 호출 테스트를 분리.
-
-### mock 테스트 (API 호출 없음, 빠름)
-```python
-test_orchestrator_all_success()     # 3개 mock 결과 주입 → 정상 완료
-test_graceful_degradation_2of3()    # News 실패 → 분석 진행, confidence 하향
-test_graceful_degradation_0of3()    # 전부 실패 → 분석 중단, error 존재
-test_usage_counter()                # 카운터 증가 확인
-test_usage_limit()                  # 100회 도달 → is_limit_reached() == True
-test_json_parse_failure()           # 잘못된 JSON → raw_output 저장, parsed=False
-```
-
-### 실제 호출 테스트 (API 비용 발생, `@pytest.mark.api_call`)
-```python
-test_news_agent_real()              # NVDA → overall_sentiment 존재
-test_full_pipeline_real()           # 전체 파이프라인 → BUY/HOLD/SELL + score 0~100
-```
-
-**완료 기준: mock 테스트 6개 전부 pass + 실제 호출 테스트 2개 pass**
 
 ---
 

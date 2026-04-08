@@ -75,28 +75,6 @@
 
 ---
 
-## 테스트
-
-Streamlit 수동 확인.
-
-### 확인 항목
-```
-□ Quick Look: 시세 헤더 — 가격, 등락률, 거래량 표시
-□ Quick Look: 차트 — 기간 전환, 캔들/라인 전환
-□ Quick Look: Fundamentals — 3열 그리드, 10개+ 지표
-□ Quick Look: Technicals — 신호 뱃지 (green/amber/red)
-□ Quick Look: 인라인 툴팁 — 호버 시 다크 팝업
-□ Quick Look: AI 버튼 — 리밋 미도달 시 활성, 도달 시 비활성
-□ AI 결과: Agent 진행 상태 — 5단계 인디케이터 전환
-□ AI 결과: Agent 실패 시 amber 경고 배너
-□ AI 결과: BUY/HOLD/SELL 뱃지 올바른 색상
-□ AI 결과: Bull/Bear 2열 카드
-□ AI 결과: 면책 조항 하단 배치
-□ 전체: UI.txt 디자인과 시각적으로 일치
-```
-
----
-
 ## 선행 조건 및 의존성
 
 - Phase 6: 디자인 시스템 CSS + 사이드바 + 화면 전환

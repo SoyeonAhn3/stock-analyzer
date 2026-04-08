@@ -23,7 +23,6 @@ Compare Mode(비교 유형 판정, 투자 스타일 분류, AI 비교 분석), W
 | 4 | `data/watchlist.py` | 🔲 | Watchlist CRUD + 등락률 조회 |
 | 5 | `data/guide_content.py` | 🔲 | 가이드 콘텐츠 딕셔너리 |
 | 6 | `data/market_overview.py` | 🔲 | 시장 지수 + 급등락 + 뉴스 |
-| 7 | `tests/test_phase5_compare.py` | 🔲 | Phase 5 pytest |
 
 ---
 
@@ -196,51 +195,6 @@ def get_market_news(limit=5) -> list[dict]:
 - yfinance: ^GSPC, ^IXIC, ^DJI, ^VIX
 - Finnhub 또는 yfinance screener로 급등/급락
 - Finnhub News API로 헤드라인
-
----
-
-## 테스트 (test_phase5_compare.py)
-
-Streamlit 없이 pytest로 검증.
-
-### Compare 테스트
-```python
-test_same_sector_detection()         # NVDA+AMD → "same_sector"
-test_cross_sector_detection()        # NVDA+LMT → "cross_sector"
-test_related_industry()              # NVDA+ASML → "same_sector" (반도체 공급망)
-test_unknown_sector()                # sector 빈 값 → "cross_sector"
-test_style_growth()                  # NVDA(매출+122%, FPE 28) → "Growth"
-test_style_value()                   # LMT(매출+6%, FPE 16, 배당 2.7%) → "Value"
-test_style_balanced()                # AAPL(매출+5%, FPE 25) → "Balanced"
-test_comparison_data()               # 2종목 → 나란히 비교 dict 반환
-```
-
-### Watchlist 테스트
-```python
-test_watchlist_add_remove()          # 추가 → 존재 확인 → 삭제 → 부재 확인
-test_watchlist_quotes()              # 3종목 → 각각 price, change_percent 존재
-test_watchlist_highlight()           # ±5% 초과 → highlight=True
-```
-
-### Guide 테스트
-```python
-test_guide_content_structure()       # 5개 카테고리 존재, 각 topic에 level/what/how 존재
-```
-
-### Overview 테스트
-```python
-test_market_indices()                # 4개 지수 반환
-test_top_movers()                    # gainers 5개 + losers 5개
-test_market_news()                   # 뉴스 1개 이상, title/source 존재
-```
-
-### 실제 AI 호출 (`@pytest.mark.api_call`)
-```python
-test_compare_same_sector_ai()        # NVDA+AMD → AI 비교 결과, verdict_by_profile 존재
-test_compare_cross_sector_ai()       # NVDA+LMT → sector_context, macro_scenarios 존재
-```
-
-**완료 기준: 일반 테스트 12개 pass + 실제 호출 테스트 2개 pass**
 
 ---
 

@@ -1,0 +1,12 @@
+{
+  "Semiconductors": ["Semiconductor Equipment", "Electronic Components", "Software - Infrastructure"],
+  "Software - Application": ["Software - Infrastructure", "Information Technology Services", "Internet Content & Information"],
+  "Software - Infrastructure": ["Software - Application", "Semiconductors", "Communication Equipment"],
+  "Internet Content & Information": ["Software - Application", "Internet Retail", "Advertising Agencies"],
+  "Internet Retail": ["Internet Content & Information", "Specialty Retail", "Consumer Electronics"],
+  "Auto Manufacturers": ["Auto Parts", "Electrical Equipment & Parts", "Specialty Chemicals"],
+  "Banks - Diversified": ["Banks - Regional", "Capital Markets", "Insurance - Diversified"],
+  "Drug Manufacturers - General": ["Biotechnology", "Medical Devices", "Diagnostics & Research"],
+  "Oil & Gas Integrated": ["Oil & Gas E&P", "Oil & Gas Equipment & Services", "Oil & Gas Refining & Marketing"],
+  "Aerospace & Defense": ["Industrial Distribution", "Specialty Industrial Machinery", "Electronic Components"]
+}

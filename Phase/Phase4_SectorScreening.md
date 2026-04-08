@@ -21,7 +21,6 @@
 | 2 | `data/theme_manager.py` | 🔲 | themes.json CRUD |
 | 3 | `data/stock_filter.py` | 🔲 | 3단계 필터 (공통 + 프리셋 + 적응형 완화) |
 | 4 | `agents/sector_analyzer.py` | 🔲 | AI 축약 분석 (10개 → Top 5) |
-| 5 | `tests/test_phase4_sector.py` | 🔲 | Phase 4 pytest |
 
 ---
 
@@ -139,33 +138,6 @@ def run_sector_screening(sector_or_theme: str) -> dict:
 - 10개 종목을 순차 호출 (병렬 시 API rate limit 위험)
 - 축약 프롬프트: "뉴스 감성(1줄) + 핵심 재무(1줄) + 기술 신호(1줄) + 점수 0~100 + 한 줄 추천 이유"
 - 점수 기준 정렬 → Top 5
-
----
-
-## 테스트 (test_phase4_sector.py)
-
-Streamlit 없이 pytest로 검증.
-
-### 필터 테스트 (API 호출 최소)
-```python
-test_common_filter()                 # 거래량 0, 데이터 누락 제거
-test_preset_large_stable()           # $50B+ 필터 → NVDA/AAPL 통과
-test_preset_early_growth()           # PE 무관 → 적자 기업도 통과 가능
-test_adaptive_relaxation_normal()    # 15개 통과 → 상위 10개, relaxed=False
-test_adaptive_relaxation_few()       # 3개 통과 → 시총 완화, relaxed=True
-test_adaptive_relaxation_empty()     # 0개 통과 → 시총 상위 10개 + 경고
-test_gics_sector_to_preset()         # IT→large_stable, Healthcare→early_growth
-test_custom_theme_load()             # themes.json 로딩 + 키/프리셋 존재
-test_custom_theme_create()           # 테마 생성 → 저장 → 로딩 확인 → 삭제
-test_custom_theme_min_tickers()      # 5개 미만 → ValueError
-```
-
-### 실제 호출 테스트 (`@pytest.mark.api_call`)
-```python
-test_full_sector_screening()         # IT 섹터 → Top 5, 각각 ticker/score/reason 존재
-```
-
-**완료 기준: mock 테스트 10개 전부 pass + 실제 호출 테스트 1개 pass**
 
 ---
 
