@@ -81,8 +81,8 @@ class APIClient:
     # ------------------------------------------------------------------
 
     def get_quote(self, ticker: str) -> Optional[dict[str, Any]]:
-        """시세 조회. Finnhub → yfinance."""
-        return self._try_fallback("quote", "get_quote", ticker=ticker)
+        """시세 조회. Finnhub → yfinance. 캐시 TTL 60초."""
+        return self._try_fallback("quote", "get_quote", cache_category="quote", ticker=ticker)
 
     def get_history(self, ticker: str, period: str = "1y", interval: str = "1d") -> Optional[dict[str, Any]]:
         """주가 히스토리. yfinance → Twelve Data."""

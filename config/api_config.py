@@ -12,6 +12,7 @@ FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "")
 TWELVEDATA_API_KEY = os.getenv("TWELVEDATA_API_KEY", "")
 FMP_API_KEY = os.getenv("FMP_API_KEY", "")
 FRED_API_KEY = os.getenv("FRED_API_KEY", "")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
 # ---------------------------------------------------------------------------
 # Endpoints
@@ -42,7 +43,8 @@ DAILY_LIMITS = {
 # Cache TTL (seconds)
 # ---------------------------------------------------------------------------
 CACHE_TTL = {
-    "quick_look": 300,     # 5 min
+    "quote": 60,           # 1 min — 시세는 실시간 변동이므로 짧게
+    "quick_look": 300,     # 5 min — 재무/차트/기술지표
     "ai_result": 3600,     # 1 hour
     "sector": 21600,       # 6 hours
 }

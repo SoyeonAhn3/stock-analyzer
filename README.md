@@ -157,15 +157,15 @@ stock-analyzer/
 
 ## Phase별 개발 계획
 
-### 기능 개발 (Phase 1~5) — pytest로 검증
+### 기능 개발 (Phase 1~5)
 
-| Phase | 이름 | 상태 | 핵심 산출물 | 테스트 |
-|:-----:|------|:----:|-----------|:------:|
-| 1 | 프로젝트 기반 + API 연동 | ✅ | 5개 API 래퍼 + 폴백 + 캐싱 | 19개 PASSED |
-| 2 | Quick Look | ✅ | 시세 + 차트 + 재무 + 기술지표 | 31개 PASSED |
-| 3 | AI Deep Analysis | 🔲 | 5 Agent 파이프라인 + Graceful Degradation | 6+2개 |
-| 4 | Sector Screening | 🔲 | 3단계 필터 + AI 축약 + Top 5 | 10+1개 |
-| 5 | Compare + Watchlist + Guide + Overview | 🔲 | 나머지 데이터 로직 전부 | 12+2개 |
+| Phase | 이름 | 상태 | 핵심 산출물 |
+|:-----:|------|:----:|-----------|
+| 1 | 프로젝트 기반 + API 연동 | ✅ | 5개 API 래퍼 + 폴백 + 캐싱 |
+| 2 | Quick Look | ✅ | 시세 + 차트 + 재무 + 기술지표 |
+| 3 | AI Deep Analysis | ✅ | 5 Agent 파이프라인 + Graceful Degradation |
+| 4 | Sector Screening | 🔲 | 3단계 필터 + AI 축약 + Top 5 |
+| 5 | Compare + Watchlist + Guide + Overview | 🔲 | 나머지 데이터 로직 전부 |
 
 ### UI 개발 (Phase 6~8) — 수동 확인
 
@@ -180,6 +180,7 @@ stock-analyzer/
 ## 설계 특징
 
 - **데이터 재사용**: Quick Look 데이터를 AI Agent가 그대로 사용하여 API 호출 최소화
+- **캐시 TTL 분리**: 시세(60초)는 짧게, 재무/차트/기술지표(5분)는 길게 — 데이터 특성에 맞춘 갱신 주기
 - **Graceful Degradation**: Agent 3개 중 일부 실패해도 나머지로 분석 진행
 - **3단계 필터**: 공통 필터 + 유형별 프리셋 4종 + 적응형 완화 (빈 결과 방지)
 - **비교 유형 자동 감지**: same_sector / cross_sector를 판정하여 분석 방식 분기
@@ -195,6 +196,7 @@ stock-analyzer/
 |------|------|------|
 | 기능 기술서 | `pre-requirement/draft.txt` | 전체 기능 상세 설계 |
 | UI 디자인 계획서 | `pre-requirement/UI.txt` | 컬러/타이포/레이아웃/화면별 디자인 |
+| 데이터 흐름 정리 | `pre-requirement/data_flow.txt` | 사용자 입력 → Quick Look → Deep Analysis 전체 흐름 |
 | Phase 문서 | `Phase/Phase*.md` | Phase별 개발 상세 + 테스트 |
 
 ---
@@ -206,3 +208,4 @@ stock-analyzer/
 | 2026-04-06 | 최초 작성. Phase 1~8 문서 생성. |
 | 2026-04-08 | Phase 1 완료. 11개 모듈 구현, 19개 테스트 PASSED. |
 | 2026-04-08 | Phase 2 완료. 7개 모듈 구현, 31개 테스트 PASSED. |
+| 2026-04-10 | 캐시 TTL 분리 정책 적용 — 시세(60초) vs 나머지(5분). |

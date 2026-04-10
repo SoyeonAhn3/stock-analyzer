@@ -99,7 +99,7 @@ stock-analyzer/
 
 ### 설계 결정 사항
 - 키: (함수명, 티커, 파라미터) 조합
-- TTL: Quick Look 5분, AI 결과 1시간, Sector 6시간
+- TTL: 시세(quote) 60초, Quick Look(재무/차트/기술지표) 5분, AI 결과 1시간, Sector 6시간
 - 저장: 딕셔너리 (메모리 캐시). 영구 저장 불필요
 - 수동 무효화: `cache.invalidate(ticker)` 지원
 - `cache.force_expire()`: 테스트용 강제 만료
