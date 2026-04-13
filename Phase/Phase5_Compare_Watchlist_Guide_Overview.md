@@ -1,6 +1,6 @@
-# Phase 5 — Compare + Watchlist + Guide + Overview 데이터 ���직 `🔲 미시작`
+# Phase 5 — Compare + Watchlist + Guide + Overview `🔲 미시작`
 
-> 나��지 기능의 데이터 로직 전부 완성. 화면 전환은 Phase 6으로 분리.
+> 나머지 기능의 데이터 로직 전부 완성. 화면 전환은 Phase 6으로 분리.
 
 **상태**: 🔲 미시작
 **선행 조건**: Phase 4 완료

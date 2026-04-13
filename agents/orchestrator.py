@@ -27,8 +27,8 @@ async def run_analysis(
 
     Args:
         quick_look_data: Phase 2에서 수집한 데이터
-        agent_overrides: 테스트용. Agent 결과를 mock으로 주입 가능.
-                         예: {"news": {...mock 결과...}}
+        agent_overrides: 테스트용. Agent 결과를 직접 주입 가능.
+                         예: {"news": {...결과 dict...}}
 
     Returns:
         analysis_state = {

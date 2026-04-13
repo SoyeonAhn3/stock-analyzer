@@ -23,11 +23,12 @@
 | 4 | `data/yfinance_client.py` | ✅ | yfinance 래퍼 |
 | 5 | `data/finnhub_client.py` | ✅ | Finnhub 래퍼 |
 | 6 | `data/twelvedata_client.py` | ✅ | Twelve Data 래퍼 |
-| 7 | `data/fmp_client.py` | ✅ | FMP 래퍼 |
+| 7 | `data/fmp_client.py` | ✅ | FMP 래퍼 (무료 플랜 제한으로 폴백 전용) |
 | 8 | `data/fred_client.py` | ✅ | FRED 래퍼 |
-| 9 | `data/api_client.py` | ✅ | 통합 API 클라이언트 (폴백 로직) |
-| 10 | `data/cache.py` | ✅ | 캐싱 모듈 |
-| 11 | `utils/usage_tracker.py` | ✅ | AI 일일 사용량 추적 |
+| 9 | `data/finviz_client.py` | ✅ | Finviz 래퍼 (FMP 대체 — 섹터 스크리닝/PE) |
+| 10 | `data/api_client.py` | ✅ | 통합 API 클라이언트 (폴백 로직) |
+| 11 | `data/cache.py` | ✅ | 캐싱 모듈 |
+| 12 | `utils/usage_tracker.py` | ✅ | AI 일일 사용량 추적 |
 
 ---
 
@@ -89,6 +90,7 @@ stock-analyzer/
 - 호출 카운터 내장 (일일 제한 추적용)
 - 통합 클라이언트가 API 우선순위 테이블에 따라 폴백 자동 실행
 - 성공한 소스명을 결과에 포함 (`"source": "finnhub"`)
+- FMP 무료 플랜 403 제한 → Finviz(finvizfinance)로 섹터 스크리닝/PE 대체 (2026-04-13)
 
 ---
 
@@ -108,12 +110,13 @@ stock-analyzer/
 
 ## 선행 조건 및 의존성
 
-- .env에 API 키 4개 세팅 필요:
+- .env에 API 키 5개 세팅 필요:
   - `FINNHUB_API_KEY`
   - `TWELVEDATA_API_KEY`
-  - `FMP_API_KEY`
+  - `FMP_API_KEY` (무료 플랜 제한으로 폴백 전용)
   - `FRED_API_KEY`
-- yfinance는 API 키 불필요
+  - `ANTHROPIC_API_KEY`
+- yfinance, Finviz는 API 키 불필요
 
 ---
 
@@ -126,15 +129,16 @@ stock-analyzer/
 
 ### 테스트 전략
 
-네트워크 차단 가능성에 대비하여 아래 방식을 채택:
+네트워크 차단 가능성에 대비하여 실제 API 테스트 + 단위 테스트 방식을 채택:
 
 | 구분 | 방식 | 비고 |
 |------|------|------|
-| yfinance / Finnhub / TwelveData / FMP | **Mock 기반 단위 테스트** | `unittest.mock.patch`로 API 응답 시뮬레이션 |
+| yfinance / Finnhub / TwelveData / FMP | **실제 API 테스트** | 접속 가능한 환경에서 수행 |
 | FRED | **실제 API 테스트** | 대부분 환경에서 접속 가능 |
 | 캐시 / 폴백 / 사용량 추적 | **단위 테스트** | 네트워크 무관, 순수 로직 검증 |
 
-테스트 파일: `tests/test_phase1_api.py` — 19개 테스트 전체 PASSED (2026-04-08)
+테스트 파일:
+- `tests/test_phase1_real_api.py` — 27개 실제 API 테스트: 24 PASSED, 3 SKIPPED (FMP 403) (2026-04-13)
 
 ---
 
@@ -153,5 +157,7 @@ stock-analyzer/
 | 날짜 | 내용 |
 |---|---|
 | 2026-04-06 | 최초 작성 |
-| 2026-04-08 | 네트워크 제약 대비 및 Mock 테스트 전략 기록 |
+| 2026-04-08 | 네트워크 제약 대비 및 테스트 전략 기록 |
 | 2026-04-08 | Phase 1 전체 완료 — 11개 모듈 구현, 19개 테스트 PASSED |
+| 2026-04-13 | FMP 무료 플랜 403 제한 발견 → Finviz(finvizfinance) 래퍼 추가, 폴백 우선순위 변경 |
+| 2026-04-13 | 실제 API 테스트 수행 — 27개 테스트 중 24 PASSED, 3 SKIPPED (FMP) |

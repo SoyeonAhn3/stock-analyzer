@@ -47,6 +47,7 @@ CACHE_TTL = {
     "quick_look": 300,     # 5 min — 재무/차트/기술지표
     "ai_result": 3600,     # 1 hour
     "sector": 21600,       # 6 hours
+    "market": 60,          # 1 min — 시장 지수
 }
 
 # ---------------------------------------------------------------------------
@@ -55,10 +56,11 @@ CACHE_TTL = {
 FALLBACK_PRIORITY = {
     "quote":           ["finnhub", "yfinance"],
     "history":         ["yfinance", "twelvedata"],
-    "fundamentals":    ["yfinance", "fmp"],
+    "fundamentals":    ["yfinance", "fmp", "finviz"],
     "technicals":      ["twelvedata", "python_calc"],
     "news":            ["finnhub"],
     "analyst":         ["finnhub"],
-    "sector_screen":   ["fmp"],
+    "sector_screen":   ["finviz", "fmp"],
+    "sector_pe":       ["finviz", "fmp"],
     "macro":           ["fred"],
 }

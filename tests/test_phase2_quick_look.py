@@ -1,6 +1,6 @@
 """Phase 2 테스트 — Quick Look 데이터 수집 계층.
 
-Mock 기반 단위 테스트로 코드 로직 검증.
+단위 테스트로 코드 로직 검증.
 
 실행: pytest tests/test_phase2_quick_look.py -v
 """
@@ -193,12 +193,12 @@ class TestFundamentals:
 
     @patch("data.fundamentals.api_client")
     def test_get_fundamentals_force_fallback(self, mock_client):
-        """TC-014: force_fallback=True → FMP 직접 호출."""
-        mock_client.fmp.get_fundamentals.return_value = MOCK_FUNDAMENTALS_RAW
+        """TC-014: force_fallback=True → Finviz 직접 호출."""
+        mock_client.finviz.get_fundamentals.return_value = MOCK_FUNDAMENTALS_RAW
         result = get_fundamentals("NVDA", force_fallback=True)
 
         assert result is not None
-        mock_client.fmp.get_fundamentals.assert_called_once_with("NVDA")
+        mock_client.finviz.get_fundamentals.assert_called_once_with("NVDA")
         mock_client.get_fundamentals.assert_not_called()
 
     @patch("data.fundamentals.api_client")

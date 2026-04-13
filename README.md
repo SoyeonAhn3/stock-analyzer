@@ -28,7 +28,8 @@
                │                    ├── yfinance (주가/재무)
                │                    ├── Finnhub (시세/뉴스)
                │                    ├── Twelve Data (기술지표)
-               │                    ├── FMP (섹터 스크리닝)
+               │                    ├── Finviz (섹터 스크리닝)
+               │                    ├── FMP (재무 폴백)
                │                    └── FRED (매크로 경제)
                │
                ├── AI Deep Analysis
@@ -54,9 +55,9 @@
 | 주가/재무 | yfinance | 무료 |
 | 시세/뉴스 | Finnhub | 무료 (분당 60회) |
 | 기술적 지표 | Twelve Data | 무료 (일 800회) |
-| 섹터 스크리닝 | FMP | 무료 (일 250회) |
+| 섹터 스크리닝 | Finviz (finvizfinance) | 무료 |
+| 재무 폴백 | FMP | 무료 (일 250회, 일부 엔드포인트 제한) |
 | 매크로 경제 | FRED API | 무료 |
-| 폴백 | Alpha Vantage | 무료 (일 25회) |
 | 웹 UI | Streamlit | 무료 |
 | 차트 | Plotly | 무료 |
 | 오케스트레이터 | Python asyncio | 무료 |
@@ -81,7 +82,8 @@ stock-analyzer/
 │   ├── yfinance_client.py          # yfinance 래퍼
 │   ├── finnhub_client.py           # Finnhub 래퍼
 │   ├── twelvedata_client.py        # Twelve Data 래퍼
-│   ├── fmp_client.py               # FMP 래퍼
+│   ├── fmp_client.py               # FMP 래퍼 (폴백 전용)
+│   ├── finviz_client.py            # Finviz 래퍼 (섹터 스크리닝/PE)
 │   ├── fred_client.py              # FRED 래퍼
 │   ├── cache.py                    # 캐싱 모듈
 │   ├── quote.py                    # 시세 수집
@@ -132,16 +134,16 @@ stock-analyzer/
 │   └── usage_tracker.py            # AI 일일 사용량 추적
 │
 ├── tests/
-│   ├── test_phase1_api.py
-│   ├── test_phase2_quick_look.py
-│   ├── test_phase3_ai_analysis.py
+│   ├── test_phase1_real_api.py     # Phase 1 실제 API 테스트 (27개)
+│   ├── test_phase2_real_api.py     # Phase 2 실제 API 테스트 (19개)
+│   ├── test_phase3_real_api.py     # Phase 3 실제 API 테스트 (9개)
 │   ├── test_phase4_sector.py
 │   └── test_phase5_compare.py
 │
 ├── Phase/                          # Phase 개발 문서
 │   ├── Phase1_프로젝트기반_API연동.md      # ✅ 완료
 │   ├── Phase2_QuickLook.md                # ✅ 완료
-│   ├── Phase3_AI_DeepAnalysis.md          # 🔲 미시작
+│   ├── Phase3_AI_DeepAnalysis.md          # ✅ 완료
 │   ├── Phase4_SectorScreening.md          # 🔲 미시작
 │   ├── Phase5_Compare_Watchlist_Guide_Overview.md  # 🔲 미시작
 │   ├── Phase6_UI기반_사이드바_화면전환.md    # 🔲 미시작
@@ -161,7 +163,7 @@ stock-analyzer/
 
 | Phase | 이름 | 상태 | 핵심 산출물 |
 |:-----:|------|:----:|-----------|
-| 1 | 프로젝트 기반 + API 연동 | ✅ | 5개 API 래퍼 + 폴백 + 캐싱 |
+| 1 | 프로젝트 기반 + API 연동 | ✅ | 6개 API 래퍼 + 폴백 + 캐싱 |
 | 2 | Quick Look | ✅ | 시세 + 차트 + 재무 + 기술지표 |
 | 3 | AI Deep Analysis | ✅ | 5 Agent 파이프라인 + Graceful Degradation |
 | 4 | Sector Screening | 🔲 | 3단계 필터 + AI 축약 + Top 5 |
@@ -209,3 +211,8 @@ stock-analyzer/
 | 2026-04-08 | Phase 1 완료. 11개 모듈 구현, 19개 테스트 PASSED. |
 | 2026-04-08 | Phase 2 완료. 7개 모듈 구현, 31개 테스트 PASSED. |
 | 2026-04-10 | 캐시 TTL 분리 정책 적용 — 시세(60초) vs 나머지(5분). |
+| 2026-04-10 | Phase 3 완료. 7개 모듈 구현, 29개 테스트 PASSED. |
+| 2026-04-13 | FMP 무료 플랜 403 제한 → Finviz 래퍼 추가, 폴백 우선순위 변경. |
+| 2026-04-13 | Phase 1 실제 API 테스트 수행 - 27개 중 24 PASSED, 3 SKIPPED (FMP). |
+| 2026-04-13 | Phase 2 실제 API 테스트 수행 - 19개 전체 PASSED. |
+| 2026-04-13 | Phase 3 실제 API 테스트 수행 - 9개 전체 PASSED (Claude + 금융 API 실호출). |

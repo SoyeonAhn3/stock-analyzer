@@ -1,9 +1,57 @@
 {
-  "AI 반도체": ["NVDA", "AMD", "AVGO", "MRVL", "INTC"],
-  "빅테크": ["AAPL", "MSFT", "GOOGL", "AMZN", "META"],
-  "전기차": ["TSLA", "RIVN", "LCID", "NIO", "LI"],
-  "헬스케어": ["UNH", "JNJ", "LLY", "PFE", "ABBV"],
-  "금융": ["JPM", "BAC", "GS", "MS", "WFC"],
-  "에너지": ["XOM", "CVX", "COP", "SLB", "EOG"],
-  "방산": ["LMT", "RTX", "NOC", "GD", "BA"]
+  "AI_semiconductor": {
+    "tickers": [
+      "NVDA",
+      "AMD",
+      "AVGO",
+      "TSM",
+      "MRVL",
+      "INTC",
+      "QCOM"
+    ],
+    "preset": "large_stable"
+  },
+  "defense": {
+    "tickers": [
+      "LMT",
+      "RTX",
+      "NOC",
+      "GD",
+      "BA",
+      "LHX",
+      "HII"
+    ],
+    "preset": "large_stable"
+  },
+  "clean_energy": {
+    "tickers": [
+      "ENPH",
+      "SEDG",
+      "FSLR",
+      "NEE",
+      "PLUG",
+      "RUN"
+    ],
+    "preset": "mid_growth"
+  },
+  "cybersecurity": {
+    "tickers": [
+      "CRWD",
+      "PANW",
+      "FTNT",
+      "ZS",
+      "OKTA"
+    ],
+    "preset": "mid_growth"
+  },
+  "space": {
+    "tickers": [
+      "RKLB",
+      "ASTS",
+      "LUNR",
+      "BA",
+      "LMT"
+    ],
+    "preset": "early_growth"
+  }
 }

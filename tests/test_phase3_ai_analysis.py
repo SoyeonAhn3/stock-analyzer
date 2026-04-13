@@ -1,7 +1,7 @@
 """Phase 3 테스트 — AI Deep Analysis 파이프라인.
 
-Mock 기반 단위 테스트로 코드 로직 검증.
-Claude API 실제 호출 없이 Agent 파이프라인의 흐름, 실패 처리, 결과 조립을 테스트.
+단위 테스트로 코드 로직 검증.
+Agent 파이프라인의 흐름, 실패 처리, 결과 조립을 테스트.
 
 실행: pytest tests/test_phase3_ai_analysis.py -v
 """

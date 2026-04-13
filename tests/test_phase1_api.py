@@ -1,8 +1,6 @@
 """Phase 1 테스트 — API 래퍼 + 통합 클라이언트 + 캐싱.
 
-사내 네트워크에서 Yahoo Finance / Finnhub / TwelveData / FMP 차단됨.
-→ Mock 기반 단위 테스트로 코드 로직 검증
-→ FRED만 실제 API 테스트
+단위 테스트로 코드 로직 검증.
 
 실행: pytest tests/test_phase1_api.py -v
 완료 기준: 전체 테스트 pass

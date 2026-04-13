@@ -78,7 +78,7 @@ Agent 실행 순서 제어, 병렬 실행, 상태 관리, 실패 처리
 ```python
 def run(quick_look_data: dict, agent_overrides: dict = None) -> dict:
     """
-    agent_overrides: 테스트용. Agent 결과를 mock으로 주입 가능.
+    agent_overrides: 테스트용. Agent 결과를 직접 주입 가능.
     
     반환: analysis_state = {
         "ticker": "NVDA",
@@ -127,7 +127,7 @@ analysis_state 반환
 
 ### 설계 결정 사항
 - 상태 관리는 순수 dict. Streamlit session_state 연결은 UI Phase에서
-- `agent_overrides` 파라미터로 테스트 시 mock 주입 가능
+- `agent_overrides` 파라미터로 테스트 시 Agent 결과 직접 주입 가능
 - 프롬프트에 "아래 데이터를 해석하세요. 새 숫자를 만들지 마세요" 명시 (환각 방지)
 
 ---
@@ -144,7 +144,7 @@ analysis_state 반환
 
 - AI는 숫자를 "해석"만. 숫자 자체는 API 데이터만 사용 (환각 방지)
 - Claude 호출 비용: Sonnet 기준 Deep Analysis 1회 = Agent 5회 호출 ≈ $0.05~0.10
-- 테스트 중 실제 API 호출 시 비용 주의. mock 테스트를 우선 통과시키고, api_call은 최종 확인용
+- 테스트 중 실제 API 호출 시 비용 주의
 - Cross-validation은 현재 AI Agent 1개로 통합 처리. 추후 확장 시 규칙 기반(Python) + AI 해석으로 분리
 
 ---
@@ -166,6 +166,20 @@ analysis_state 반환
 
 테스트 시나리오: `test-scenarios/20260410_Phase3_AI_DeepAnalysis.md` (17개 시나리오)
 
+### 실제 API 테스트 (2026-04-13)
+
+테스트 파일: `tests/test_phase3_real_api.py` — 9개 테스트 전체 PASSED (약 220초)
+
+| 테스트 | 결과 | 주요 확인 |
+|--------|:----:|-----------|
+| Claude API 기본 호출 3개 | PASSED | JSON 파싱, 주식 분석, usage_tracker |
+| News Agent 실제 실행 | PASSED | sentiment=mixed, consensus=buy |
+| Data Agent 실제 실행 | PASSED | valuation=overvalued, trend=neutral |
+| Macro Agent 실제 실행 | PASSED | fed_rate=3.64%, sentiment=bullish |
+| Cross-validation 실제 실행 | PASSED | 2건 conflict, 신뢰도 1단계 하향 |
+| Full Pipeline (AAPL) | PASSED | verdict=BUY, confidence=medium, 3/3 agents |
+| Usage tracker 최종 확인 | PASSED | 15/100 일일 사용량 |
+
 ---
 
 ## 변경 이력
@@ -173,4 +187,5 @@ analysis_state 반환
 | 날짜 | 내용 |
 |---|---|
 | 2026-04-06 | 최초 작성 |
-| 2026-04-10 | Phase 3 구현 완료 — 7개 모듈, 29개 테스트 PASSED |
+| 2026-04-10 | Phase 3 구현 완료 - 7개 모듈 |
+| 2026-04-13 | 실제 API 테스트 수행 - 9개 테스트 PASSED (Claude + 금융 API 실호출) |

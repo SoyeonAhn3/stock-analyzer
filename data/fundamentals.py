@@ -19,7 +19,7 @@ def get_fundamentals(ticker: str, force_fallback: bool = False) -> Optional[dict
 
     Args:
         ticker: 종목 코드
-        force_fallback: True면 1순위 건너뛰고 FMP 직접 호출 (테스트용)
+        force_fallback: True면 1순위 건너뛰고 Finviz 직접 호출 (테스트용)
 
     Returns:
         {
@@ -32,7 +32,7 @@ def get_fundamentals(ticker: str, force_fallback: bool = False) -> Optional[dict
         실패 시 None.
     """
     if force_fallback:
-        raw = api_client.fmp.get_fundamentals(ticker)
+        raw = api_client.finviz.get_fundamentals(ticker)
     else:
         raw = api_client.get_fundamentals(ticker)
 

@@ -17,6 +17,7 @@ from data.finnhub_client import FinnhubClient
 from data.twelvedata_client import TwelveDataClient
 from data.fmp_client import FMPClient
 from data.fred_client import FREDClient
+from data.finviz_client import FinvizClient
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ class APIClient:
         self.twelvedata = TwelveDataClient()
         self.fmp = FMPClient()
         self.fred = FREDClient()
+        self.finviz = FinvizClient()
 
         self._clients = {
             "yfinance": self.yfinance,
@@ -42,6 +44,7 @@ class APIClient:
             "twelvedata": self.twelvedata,
             "fmp": self.fmp,
             "fred": self.fred,
+            "finviz": self.finviz,
         }
 
     def _try_fallback(self, data_type: str, method_name: str, cache_category: str = "quick_look", **kwargs) -> Optional[dict[str, Any]]:
@@ -132,13 +135,29 @@ class APIClient:
         return self._try_fallback("analyst", "get_analyst_recommendations", ticker=ticker)
 
     def get_sector_stocks(self, sector: str, **kwargs) -> Optional[dict[str, Any]]:
-        """섹터 스크리닝. FMP."""
+        """섹터 스크리닝. Finviz → FMP 폴백."""
         cached = cache.get("sector_screen", sector)
         if cached is not None:
             return cached
-        result = self.fmp.screen_stocks(sector=sector, **kwargs)
+        # Finviz 1순위
+        result = self.finviz.screen_stocks(sector=sector, **kwargs)
+        # FMP 폴백
+        if result is None:
+            result = self.fmp.screen_stocks(sector=sector, **kwargs)
         if result:
             cache.set("sector_screen", sector, result, CACHE_TTL["sector"])
+        return result
+
+    def get_sector_pe(self, sector: str) -> Optional[dict[str, Any]]:
+        """섹터 평균 PE. Finviz → FMP 폴백."""
+        cached = cache.get("sector_pe", sector)
+        if cached is not None:
+            return cached
+        result = self.finviz.get_sector_pe(sector)
+        if result is None:
+            result = self.fmp.get_sector_pe(sector)
+        if result:
+            cache.set("sector_pe", sector, result, CACHE_TTL["sector"])
         return result
 
     def get_macro(self) -> Optional[dict[str, Any]]:
