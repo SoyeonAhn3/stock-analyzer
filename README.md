@@ -21,28 +21,31 @@
 ## 시스템 아키텍처
 
 ```
-[사용자] → Streamlit UI
+[사용자] → React (브라우저)
+               │ HTTP/JSON
+               ▼
+          FastAPI 백엔드 (localhost:8000)
                │
-               ├── Quick Look ──→ [API 계층] ──→ 시세/차트/재무/기술지표
-               │                    │
-               │                    ├── yfinance (주가/재무)
-               │                    ├── Finnhub (시세/뉴스)
-               │                    ├── Twelve Data (기술지표)
-               │                    ├── Finviz (섹터 스크리닝)
-               │                    ├── FMP (재무 폴백)
-               │                    └── FRED (매크로 경제)
+               ├── /api/quote/* ──→ [데이터 계층] ──→ 시세/차트/재무/기술지표
+               │                        │
+               │                        ├── yfinance (주가/재무)
+               │                        ├── Finnhub (시세/뉴스)
+               │                        ├── Twelve Data (기술지표)
+               │                        ├── Finviz (섹터 스크리닝)
+               │                        ├── FMP (재무 폴백)
+               │                        └── FRED (매크로 경제)
                │
-               ├── AI Deep Analysis
-               │     │
-               │     ├──[병렬]── News Agent ──┐
-               │     ├──[병렬]── Data Agent ──┼──→ Cross-validation ──→ Analyst
-               │     └──[병렬]── Macro Agent ─┘        Agent               Agent
-               │                                                            │
-               │                                                    BUY / HOLD / SELL
+               ├── /api/analysis/* ──→ AI Agent 계층
+               │                        │
+               │                        ├──[병렬]── News Agent ──┐
+               │                        ├──[병렬]── Data Agent ──┼──→ Cross-validation ──→ Analyst
+               │                        └──[병렬]── Macro Agent ─┘        Agent               Agent
+               │                                                                                │
+               │                                                                        BUY / HOLD / SELL
                │
-               ├── Sector Screening ──→ 3단계 필터 ──→ AI 축약 분석 ──→ Top 5
+               ├── /api/sector/* ──→ 3단계 필터 ──→ AI 축약 분석 ──→ Top 5
                │
-               └── Compare Mode ──→ 비교 유형 판정 ──→ AI 비교 분석
+               └── /api/compare/* ──→ 비교 유형 판정 ──→ AI 비교 분석
 ```
 
 ---
@@ -58,8 +61,9 @@
 | 섹터 스크리닝 | Finviz (finvizfinance) | 무료 |
 | 재무 폴백 | FMP | 무료 (일 250회, 일부 엔드포인트 제한) |
 | 매크로 경제 | FRED API | 무료 |
-| 웹 UI | Streamlit | 무료 |
-| 차트 | Plotly | 무료 |
+| 백엔드 API | FastAPI + Uvicorn | 무료 |
+| 프론트엔드 | React + TypeScript + Vite | 무료 |
+| 차트 | Lightweight Charts (또는 Plotly React) | 무료 |
 | 오케스트레이터 | Python asyncio | 무료 |
 
 ---
@@ -68,16 +72,15 @@
 
 ```
 stock-analyzer/
-├── app.py                          # Streamlit 메인 엔트리
 ├── requirements.txt
 ├── .env                            # API 키 (gitignore)
 │
-├── config/
+├── config/                         # 설정
 │   ├── api_config.py               # API 키 로딩, 엔드포인트, 타임아웃
 │   ├── themes.json                 # 커스텀 테마 종목 리스트
 │   └── related_industries.json     # 관련 업종 매핑 테이블
 │
-├── data/
+├── data/                           # 데이터 계층 (Phase 1~5)
 │   ├── api_client.py               # 통합 API 클라이언트 (폴백 로직)
 │   ├── yfinance_client.py          # yfinance 래퍼
 │   ├── finnhub_client.py           # Finnhub 래퍼
@@ -99,7 +102,7 @@ stock-analyzer/
 │   ├── guide_content.py            # 가이드 콘텐츠
 │   └── market_overview.py          # 시장 지수/급등락/뉴스
 │
-├── agents/
+├── agents/                         # AI Agent 계층 (Phase 3~5)
 │   ├── claude_client.py            # Claude API 기본 호출
 │   ├── orchestrator.py             # Agent 오케스트레이터
 │   ├── news_agent.py               # 뉴스 감성 분석
@@ -110,27 +113,32 @@ stock-analyzer/
 │   ├── sector_analyzer.py          # 섹터 AI 축약 분석
 │   └── compare_agent.py            # AI 비교 분석
 │
-├── screens/
-│   ├── styles.py                   # CSS 디자인 시스템
-│   ├── sidebar.py                  # 사이드바
-│   ├── state.py                    # session_state + 화면 전환
-│   ├── market_overview.py          # 기본 화면 UI
-│   ├── quick_look.py               # Quick Look UI
-│   ├── ai_analysis.py              # AI 분석 결과 UI
-│   ├── sector_screening.py         # Sector Screening UI
-│   ├── compare_mode.py             # Compare Mode UI
-│   ├── guide.py                    # Beginner's Guide UI
-│   └── components/
-│       ├── tooltip.py              # 인라인 툴팁
-│       ├── signal_badge.py         # 신호 뱃지
-│       ├── agent_status.py         # Agent 진행 표시
-│       ├── loading.py              # 로딩 상태
-│       └── error_banner.py         # 에러 배너
+├── backend/                        # FastAPI 백엔드 (Phase 6)
+│   ├── main.py                     # 서버 시작점 + CORS
+│   ├── schemas.py                  # Pydantic 요청/응답 모델
+│   └── routers/
+│       ├── quote.py                # /api/quote, fundamentals, technicals, history
+│       ├── market.py               # /api/market/indices, movers, news
+│       ├── analysis.py             # /api/analysis (AI 5-Agent)
+│       ├── sector.py               # /api/sector, themes
+│       ├── compare.py              # /api/compare
+│       ├── watchlist.py            # /api/watchlist CRUD
+│       └── guide.py                # /api/guide
+│
+├── frontend/                       # React 프론트엔드 (Phase 7~9)
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── src/
+│       ├── App.tsx                 # 앱 시작점 + 라우팅
+│       ├── theme/                  # 디자인 시스템 (Dark/Light)
+│       ├── components/             # 재사용 UI 컴포넌트
+│       ├── pages/                  # 화면별 페이지
+│       ├── hooks/                  # API 호출 로직
+│       └── types/                  # TypeScript 타입
 │
 ├── utils/
 │   ├── tooltips.py                 # 지표별 설명 텍스트
 │   ├── indicators.py               # 기술지표 Python 계산 (폴백)
-│   ├── chart_builder.py            # Plotly figure 생성
 │   └── usage_tracker.py            # AI 일일 사용량 추적
 │
 ├── tests/
@@ -141,18 +149,21 @@ stock-analyzer/
 │   └── test_phase5_compare.py
 │
 ├── Phase/                          # Phase 개발 문서
-│   ├── Phase1_프로젝트기반_API연동.md      # ✅ 완료
-│   ├── Phase2_QuickLook.md                # ✅ 완료
-│   ├── Phase3_AI_DeepAnalysis.md          # ✅ 완료
-│   ├── Phase4_SectorScreening.md          # 🔲 미시작
-│   ├── Phase5_Compare_Watchlist_Guide_Overview.md  # 🔲 미시작
-│   ├── Phase6_UI기반_사이드바_화면전환.md    # 🔲 미시작
-│   ├── Phase7_QuickLook_AI결과_UI.md       # 🔲 미시작
-│   └── Phase8_나머지UI_최종통합.md          # 🔲 미시작
+│   ├── Phase1_프로젝트기반_API연동.md              # ✅ 완료
+│   ├── Phase2_QuickLook.md                        # ✅ 완료
+│   ├── Phase3_AI_DeepAnalysis.md                  # ✅ 완료
+│   ├── Phase4_SectorScreening.md                  # ✅ 완료
+│   ├── Phase5_Compare_Watchlist_Guide_Overview.md # ✅ 완료
+│   ├── Phase6_FastAPI_백엔드.md                    # 🔲 미시작
+│   ├── Phase7_React_셋업_디자인_레이아웃.md         # 🔲 미시작
+│   ├── Phase8_QuickLook_AI분석_화면.md             # 🔲 미시작
+│   ├── Phase9_나머지화면_최종통합.md                # 🔲 미시작
+│   └── Phase10_UX개선_데이터영속화.md              # 🔲 미시작
 │
 └── pre-requirement/                # 기획 문서
     ├── draft.txt                   # 기능 기술서
-    └── UI.txt                      # UI 디자인 계획서
+    ├── design-spec.md              # 디자인 스펙 (권위 문서)
+    └── Stock Analyzer UI.png       # UI 레퍼런스 이미지
 ```
 
 ---
@@ -166,16 +177,23 @@ stock-analyzer/
 | 1 | 프로젝트 기반 + API 연동 | ✅ | 6개 API 래퍼 + 폴백 + 캐싱 |
 | 2 | Quick Look | ✅ | 시세 + 차트 + 재무 + 기술지표 |
 | 3 | AI Deep Analysis | ✅ | 5 Agent 파이프라인 + Graceful Degradation |
-| 4 | Sector Screening | 🔲 | 3단계 필터 + AI 축약 + Top 5 |
-| 5 | Compare + Watchlist + Guide + Overview | 🔲 | 나머지 데이터 로직 전부 |
+| 4 | Sector Screening | ✅ | 3단계 필터 + AI 축약 + Top 5 |
+| 5 | Compare + Watchlist + Guide + Overview | ✅ | 나머지 데이터 로직 전부 |
 
-### UI 개발 (Phase 6~8) — 수동 확인
+### 백엔드 + 프론트엔드 (Phase 6~9) — React 전환
 
-| Phase | 이름 | 상태 | 핵심 산출물 | 확인 항목 |
-|:-----:|------|:----:|-----------|:---------:|
-| 6 | UI 기반 + 사이드바 + 화면 전환 | 🔲 | CSS + 레이아웃 + 모드 라우팅 | 11개 |
-| 7 | Quick Look + AI 결과 UI | 🔲 | 핵심 화면 디자인 적용 | 12개 |
-| 8 | 나머지 UI + 최종 통합 | 🔲 | 전체 완성 + 시나리오 테스트 | 18개 |
+| Phase | 이름 | 상태 | 핵심 산출물 |
+|:-----:|------|:----:|-----------|
+| 6 | FastAPI 백엔드 | 🔲 | REST API 15개 엔드포인트 + CORS + Pydantic |
+| 7 | React 셋업 + 디자인 시스템 + 레이아웃 | 🔲 | 프로젝트 초기화 + 테마 + 사이드바 + 라우팅 + 하단 바 |
+| 8 | Quick Look + AI 분석 화면 | 🔲 | 핵심 화면 2개 + 캔들스틱 차트 + 기술 지표 카드 |
+| 9 | 나머지 화면 + 최종 통합 | 🔲 | Market Overview + Sector + Compare + Guide + 면책 조항 |
+
+### UX 개선 + 영속화 (Phase 10)
+
+| Phase | 이름 | 상태 | 핵심 산출물 |
+|:-----:|------|:----:|-----------|
+| 10 | UX 개선 + 데이터 영속화 | 🔲 | 검색 자동완성 + Watchlist UI + SQLite + 가격 알림 + 반응형 |
 
 ---
 
@@ -198,6 +216,7 @@ stock-analyzer/
 |------|------|------|
 | 기능 기술서 | `pre-requirement/draft.txt` | 전체 기능 상세 설계 |
 | UI 디자인 계획서 | `pre-requirement/UI.txt` | 컬러/타이포/레이아웃/화면별 디자인 |
+| **디자인 스펙 (권위 문서)** | `pre-requirement/design-spec.md` | 컬러 토큰, 레이아웃 구조, Plotly 테마, Settings |
 | 데이터 흐름 정리 | `pre-requirement/data_flow.txt` | 사용자 입력 → Quick Look → Deep Analysis 전체 흐름 |
 | Phase 문서 | `Phase/Phase*.md` | Phase별 개발 상세 + 테스트 |
 
@@ -216,3 +235,10 @@ stock-analyzer/
 | 2026-04-13 | Phase 1 실제 API 테스트 수행 - 27개 중 24 PASSED, 3 SKIPPED (FMP). |
 | 2026-04-13 | Phase 2 실제 API 테스트 수행 - 19개 전체 PASSED. |
 | 2026-04-13 | Phase 3 실제 API 테스트 수행 - 9개 전체 PASSED (Claude + 금융 API 실호출). |
+| 2026-04-14 | Phase 4-5 구현 완료 (원격 병합). Sector Screening + Compare/Watchlist/Guide/Overview. |
+| 2026-04-14 | technicals.py — Bollinger 수치 + MACD 히스토그램 값 추가. |
+| 2026-04-14 | market_overview — BTC/ETH 추가 (하단 지수 바 6개 항목). |
+| 2026-04-14 | design-spec.md 전면 개정 — Dark/Light 동시 지원, Settings 패널, 사이드바 메뉴 5개 확정. |
+| 2026-04-14 | Phase 4-8 문서 업데이트 — 최신 설계 결정사항 반영. |
+| 2026-04-14 | **React 전환 결정** — Streamlit → FastAPI + React + TypeScript. |
+| 2026-04-14 | Phase 6~9 문서 재구성 — Phase 6(FastAPI), 7(React 셋업), 8(핵심 화면), 9(나머지+통합). |

@@ -1,4 +1,4 @@
-"""Watchlist 모듈 — 관심 종목 CRUD + 등락률 조회.
+"""Watchlist 모듈 — 관심 종목 CRUD + 등락률 조회 (SQLite 기반).
 
 사용법:
     from data.watchlist import load_watchlist, add_to_watchlist, get_watchlist_quotes
@@ -7,30 +7,27 @@
     quotes = get_watchlist_quotes(wl)
 """
 
-import json
 import logging
-import os
-from typing import Any, Optional
+from typing import Any
 
+from data.database import get_connection
 from data.quote import get_quote
 
 logger = logging.getLogger(__name__)
-
-WATCHLIST_PATH = os.path.join(os.path.dirname(__file__), "..", "config", "watchlist.json")
 
 HIGHLIGHT_THRESHOLD = 5.0  # ±5% 이상이면 highlight
 
 
 def load_watchlist() -> list[str]:
-    """watchlist.json 로드. 파일 없으면 빈 리스트."""
+    """watchlist 테이블에서 티커 목록 로드."""
+    conn = get_connection()
     try:
-        with open(WATCHLIST_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            if isinstance(data, list):
-                return data
-            return []
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
+        rows = conn.execute(
+            "SELECT ticker FROM watchlist ORDER BY added_at"
+        ).fetchall()
+        return [row["ticker"] for row in rows]
+    finally:
+        conn.close()
 
 
 def add_to_watchlist(ticker: str) -> None:
@@ -43,13 +40,15 @@ def add_to_watchlist(ticker: str) -> None:
     if not ticker:
         raise ValueError("티커가 비어있습니다.")
 
-    wl = load_watchlist()
-    if ticker in wl:
-        logger.info("이미 Watchlist에 존재: %s", ticker)
-        return
-    wl.append(ticker)
-    _save(wl)
-    logger.info("Watchlist 추가: %s", ticker)
+    conn = get_connection()
+    try:
+        conn.execute(
+            "INSERT OR IGNORE INTO watchlist (ticker) VALUES (?)", (ticker,)
+        )
+        conn.commit()
+        logger.info("Watchlist 추가: %s", ticker)
+    finally:
+        conn.close()
 
 
 def remove_from_watchlist(ticker: str) -> None:
@@ -59,12 +58,17 @@ def remove_from_watchlist(ticker: str) -> None:
         KeyError: 존재하지 않는 티커
     """
     ticker = ticker.strip().upper()
-    wl = load_watchlist()
-    if ticker not in wl:
-        raise KeyError(f"'{ticker}'이(가) Watchlist에 없습니다.")
-    wl.remove(ticker)
-    _save(wl)
-    logger.info("Watchlist 제거: %s", ticker)
+    conn = get_connection()
+    try:
+        cursor = conn.execute(
+            "DELETE FROM watchlist WHERE ticker = ?", (ticker,)
+        )
+        if cursor.rowcount == 0:
+            raise KeyError(f"'{ticker}'이(가) Watchlist에 없습니다.")
+        conn.commit()
+        logger.info("Watchlist 제거: %s", ticker)
+    finally:
+        conn.close()
 
 
 def get_watchlist_quotes(watchlist: list[str]) -> list[dict[str, Any]]:
@@ -111,12 +115,14 @@ def get_watchlist_quotes(watchlist: list[str]) -> list[dict[str, Any]]:
 
 
 def save_watchlist_to_file(watchlist: list[str]) -> None:
-    """Watchlist를 JSON 파일로 저장."""
-    _save(watchlist)
-
-
-def _save(data: list) -> None:
-    """watchlist.json에 저장."""
-    os.makedirs(os.path.dirname(WATCHLIST_PATH), exist_ok=True)
-    with open(WATCHLIST_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    """하위 호환용 — SQLite에 일괄 저장."""
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM watchlist")
+        conn.executemany(
+            "INSERT INTO watchlist (ticker) VALUES (?)",
+            [(t,) for t in watchlist],
+        )
+        conn.commit()
+    finally:
+        conn.close()

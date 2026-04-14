@@ -1,4 +1,4 @@
-"""커스텀 테마 관리 모듈 - themes.json CRUD.
+"""커스텀 테마 관리 모듈 — SQLite 기반 CRUD.
 
 사용법:
     from data.theme_manager import load_themes, create_theme, delete_theme
@@ -8,48 +8,31 @@
 
 import json
 import logging
-import os
 from typing import Any
+
+from data.database import get_connection
 
 logger = logging.getLogger(__name__)
 
-THEMES_PATH = os.path.join(os.path.dirname(__file__), "..", "config", "themes.json")
-
 VALID_PRESETS = ("large_stable", "mid_growth", "early_growth", "dividend")
-
-DEFAULT_THEMES = {
-    "AI_semiconductor": {
-        "tickers": ["NVDA", "AMD", "AVGO", "TSM", "MRVL", "INTC", "QCOM"],
-        "preset": "large_stable",
-    },
-    "defense": {
-        "tickers": ["LMT", "RTX", "NOC", "GD", "BA", "LHX", "HII"],
-        "preset": "large_stable",
-    },
-    "clean_energy": {
-        "tickers": ["ENPH", "SEDG", "FSLR", "NEE", "PLUG", "RUN"],
-        "preset": "mid_growth",
-    },
-    "cybersecurity": {
-        "tickers": ["CRWD", "PANW", "FTNT", "ZS", "OKTA"],
-        "preset": "mid_growth",
-    },
-    "space": {
-        "tickers": ["RKLB", "ASTS", "LUNR", "BA", "LMT"],
-        "preset": "early_growth",
-    },
-}
 
 
 def load_themes() -> dict[str, Any]:
-    """themes.json 로드. 파일 없으면 기본 테마로 자동 생성."""
+    """themes 테이블에서 전체 테마 로드. dict[name → {tickers, preset}] 형태."""
+    conn = get_connection()
     try:
-        with open(THEMES_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        logger.info("themes.json not found or invalid, creating defaults")
-        _save(DEFAULT_THEMES)
-        return DEFAULT_THEMES.copy()
+        rows = conn.execute(
+            "SELECT name, tickers, preset FROM themes ORDER BY created_at"
+        ).fetchall()
+        return {
+            row["name"]: {
+                "tickers": json.loads(row["tickers"]),
+                "preset": row["preset"],
+            }
+            for row in rows
+        }
+    finally:
+        conn.close()
 
 
 def create_theme(name: str, tickers: list[str], preset: str) -> None:
@@ -68,13 +51,17 @@ def create_theme(name: str, tickers: list[str], preset: str) -> None:
     if preset not in VALID_PRESETS:
         raise ValueError(f"유효하지 않은 프리셋: {preset}. 허용: {VALID_PRESETS}")
 
-    themes = load_themes()
-    themes[name] = {
-        "tickers": [t.upper() for t in tickers],
-        "preset": preset,
-    }
-    _save(themes)
-    logger.info("Theme created: %s (%d tickers, preset=%s)", name, len(tickers), preset)
+    upper_tickers = [t.upper() for t in tickers]
+    conn = get_connection()
+    try:
+        conn.execute(
+            "INSERT OR REPLACE INTO themes (name, tickers, preset) VALUES (?, ?, ?)",
+            (name, json.dumps(upper_tickers), preset),
+        )
+        conn.commit()
+        logger.info("Theme created: %s (%d tickers, preset=%s)", name, len(tickers), preset)
+    finally:
+        conn.close()
 
 
 def delete_theme(name: str) -> None:
@@ -83,21 +70,24 @@ def delete_theme(name: str) -> None:
     Raises:
         KeyError: 존재하지 않는 테마
     """
-    themes = load_themes()
-    if name not in themes:
-        raise KeyError(f"테마 '{name}'이(가) 존재하지 않습니다.")
-    del themes[name]
-    _save(themes)
-    logger.info("Theme deleted: %s", name)
+    conn = get_connection()
+    try:
+        cursor = conn.execute("DELETE FROM themes WHERE name = ?", (name,))
+        if cursor.rowcount == 0:
+            raise KeyError(f"테마 '{name}'이(가) 존재하지 않습니다.")
+        conn.commit()
+        logger.info("Theme deleted: %s", name)
+    finally:
+        conn.close()
 
 
 def get_theme_names() -> list[str]:
     """등록된 테마 이름 목록."""
-    return list(load_themes().keys())
-
-
-def _save(data: dict) -> None:
-    """themes.json에 저장."""
-    os.makedirs(os.path.dirname(THEMES_PATH), exist_ok=True)
-    with open(THEMES_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT name FROM themes ORDER BY created_at"
+        ).fetchall()
+        return [row["name"] for row in rows]
+    finally:
+        conn.close()

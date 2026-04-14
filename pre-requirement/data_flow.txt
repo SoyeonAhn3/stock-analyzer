@@ -3,14 +3,21 @@ AI Stock Analyzer — 전체 데이터 흐름 정리
 사용자 입력부터 분석 결과 출력까지
 ================================================================================
 작성일: 2026-04-10
-관련 Phase: Phase 1~3, Phase 6~8
+최종 수정: 2026-04-14 (React + FastAPI 전환 반영)
+관련 Phase: Phase 1~5 (데이터/AI), Phase 6 (FastAPI), Phase 7~9 (React)
 
 
 ================================================================================
 1. 전체 흐름 요약
 ================================================================================
 
-  사용자: "NVDA" 입력
+  사용자: 브라우저에서 "NVDA" 검색
+          |
+          v
+    [React 프론트엔드] (localhost:3000)
+          |  HTTP 요청
+          v
+    [FastAPI 백엔드] (localhost:8000)
           |
           v
     [STEP 1] Quick Look (즉시, AI 없음, 1~2초)
@@ -21,11 +28,38 @@ AI Stock Analyzer — 전체 데이터 흐름 정리
              "숫자를 해석하는 단계"
           |
           v
-    [STEP 3] 화면에 결과 표시
+    [STEP 3] JSON 응답 → React가 화면에 표시
 
 
 ================================================================================
-2. STEP 1 — Quick Look (데이터 수집)
+2. 아키텍처 개요 (React + FastAPI)
+================================================================================
+
+  ┌─────────────┐     HTTP/JSON      ┌──────────────┐
+  │   React     │ ─────────────────→ │   FastAPI    │
+  │  (브라우저)  │ ←───────────────── │   (서버)     │
+  │             │                    │              │
+  │  화면 담당   │                    │  데이터+AI   │
+  │  TypeScript │                    │  Python      │
+  └─────────────┘                    └──────┬───────┘
+                                            │
+                                    ┌───────┴───────┐
+                                    │               │
+                              data/ 모듈      agents/ 모듈
+                              (Phase 1~2)     (Phase 3~5)
+                                    │               │
+                              api_client.py   claude_client.py
+                                    │               │
+                              외부 금융 API     Claude API
+
+  [핵심 포인트]
+  - React는 FastAPI의 엔드포인트만 호출 (Python 함수 직접 호출 불가)
+  - FastAPI는 기존 data/agents 함수를 그대로 호출 (코드 변경 없음)
+  - React ↔ FastAPI 사이의 데이터는 전부 JSON
+
+
+================================================================================
+3. STEP 1 — Quick Look (데이터 수집)
 ================================================================================
 
 [목적]
@@ -34,16 +68,27 @@ AI Stock Analyzer — 전체 데이터 흐름 정리
 
 [호출 흐름]
 
-  app.py (Streamlit 메인)
+  React (브라우저)
     |
-    |-- quote.py ----------+
-    |-- history.py ---------+--- api_client.py --- 외부 API
-    |-- fundamentals.py ----+       |
-    |-- technicals.py ------+       |-- Finnhub    (시세, 뉴스)
-                                    |-- yfinance   (재무, 차트)
-                                    |-- TwelveData (기술지표)
-                                    |-- FMP        (섹터, 재무제표)
-                                    |-- FRED       (금리, CPI)
+    |-- fetch("/api/quote/NVDA")         → FastAPI → quote.py
+    |-- fetch("/api/history/NVDA")       → FastAPI → history.py
+    |-- fetch("/api/fundamentals/NVDA")  → FastAPI → fundamentals.py
+    |-- fetch("/api/technicals/NVDA")    → FastAPI → technicals.py
+    |
+    |  (4개 요청을 Promise.all로 병렬 실행)
+    |
+    v
+  FastAPI (backend/routers/quote.py)
+    |
+    |-- get_quote("NVDA") ----------+
+    |-- get_history("NVDA") ---------+--- api_client.py --- 외부 API
+    |-- get_fundamentals("NVDA") ----+       |
+    |-- get_technicals("NVDA") ------+       |-- Finnhub    (시세, 뉴스)
+                                             |-- yfinance   (재무, 차트)
+                                             |-- TwelveData (기술지표)
+                                             |-- FMP        (섹터, 재무제표)
+                                             |-- Finviz     (섹터 PE)
+                                             |-- FRED       (금리, CPI)
 
 [api_client.py의 역할]
   데이터 유형별로 우선순위에 따라 API를 호출한다.
@@ -58,39 +103,44 @@ AI Stock Analyzer — 전체 데이터 흐름 정리
   기술적 지표      TwelveData   Python 계산   -
   뉴스             Finnhub      -             -
 
-[결과물: quick_look_data (dict)]
+[API 응답 예시: GET /api/quote/NVDA]
 
-  quick_look_data = {
+  {
       "ticker": "NVDA",
-
-      # quote.py
-      "price": 950.02,
-      "change": +15.30,
-      "change_pct": +1.64,
-
-      # history.py
-      "history": [{"date": "2026-04-09", "close": 950.02}, ...],
-
-      # fundamentals.py
-      "pe": 35.2,
-      "eps": 4.05,
-      "market_cap": 2340000000000,
-      "sector": "Technology",
-      "de_ratio": 0.41,
-
-      # technicals.py
-      "rsi": 72.5,
-      "macd": {"value": 12.3, "signal": 10.1},
-      "ma50": 890.0,
-      "ma200": 750.0,
+      "price": 142.50,
+      "change": 3.21,
+      "change_percent": 2.3,
+      "volume": 342100000,
+      "market_cap": 3520000000000,
+      "source": "finnhub"
   }
 
-  이 데이터는 화면에 바로 표시되고,
-  Deep Analysis에서도 그대로 재사용된다 (API 재호출 없음).
+[API 응답 예시: GET /api/technicals/NVDA]
+
+  {
+      "ticker": "NVDA",
+      "rsi": {"value": 62.4, "signal": "neutral"},
+      "macd": {"histogram": 1.25, "signal": "bullish", "detail": "..."},
+      "bollinger": {
+          "upper": 148.12, "middle": 141.05, "lower": 133.98,
+          "position": "upper_half", "signal": "neutral"
+      },
+      "ma50": {"value": 135.20, "vs_price": "+5.4%", "signal": "bullish"},
+      "ma200": {"value": 118.50, "vs_price": "+20.3%", "signal": "bullish"},
+      "source": "twelvedata"
+  }
+
+[React에서의 데이터 사용]
+
+  // useQuote hook이 4개 API를 병렬 호출
+  const { quote, fundamentals, technicals, history, loading } = useQuote("NVDA")
+
+  // 로딩 중: 스켈레톤 UI 표시
+  // 완료 후: PriceHeader, KpiCard, Chart, TechCard에 데이터 전달
 
 
 ================================================================================
-3. STEP 2 — Deep Analysis (AI 분석)
+4. STEP 2 — Deep Analysis (AI 분석)
 ================================================================================
 
 [목적]
@@ -98,11 +148,19 @@ AI Stock Analyzer — 전체 데이터 흐름 정리
   최종 BUY/HOLD/SELL 판단을 내린다.
 
 [사용자 트리거]
-  Quick Look 화면에서 "AI 분석 시작" 버튼 클릭
+  Quick Look 화면에서 "AI 분석 실행" 버튼 클릭
 
 [호출 흐름]
 
-  app.py
+  React (브라우저)
+    |
+    |-- fetch("/api/analysis/NVDA", {method: "POST"})
+    |   (1~2분 대기, 로딩 UI 표시)
+    |
+    v
+  FastAPI (backend/routers/analysis.py)
+    |
+    |-- 먼저 quick_look_data 수집 (get_quote + get_fundamentals + get_technicals)
     |
     v
   orchestrator.py (지휘자)
@@ -112,20 +170,17 @@ AI Stock Analyzer — 전체 데이터 흐름 정리
     |     |-- news_agent.py                                |
     |     |     1. Finnhub에서 뉴스/애널리스트 수집          |
     |     |     2. Claude에게 "뉴스 감성 분석해줘"           |
-    |     |     3. 결과: 감성, 실적, 애널리스트 종합          |
     |     |     => Claude 1회 호출                          |
     |     |                                                |
     |     |-- data_agent.py                                |
     |     |     1. quick_look_data 재사용 (API 호출 없음!)   |
-    |     |     2. 섹터 평균 PE만 추가 수집 (FMP)             |
+    |     |     2. 섹터 평균 PE만 추가 수집 (Finviz)          |
     |     |     3. Claude에게 "이 숫자들 해석해줘"            |
-    |     |     4. 결과: 밸류에이션, 기술지표 해석, 재무 건전성 |
     |     |     => Claude 1회 호출                          |
     |     |                                                |
     |     |-- macro_agent.py                               |
     |     |     1. FRED API에서 금리/CPI/실업률 수집          |
     |     |     2. Claude에게 "경제 상황 분석해줘"            |
-    |     |     3. 결과: 금리 전망, 물가, 섹터 트렌드          |
     |     |     => Claude 1회 호출                          |
     |     |                                                |
     |     +------------------------------------------------+
@@ -141,23 +196,46 @@ AI Stock Analyzer — 전체 데이터 흐름 정리
     |     +------------------------------------------------+
     |
     |-- [3단계: 교차검증]
-    |     |
     |     |-- cross_validation.py
-    |     |     1. 3개 Agent 결과를 한꺼번에 받음
-    |     |     2. Claude에게 "모순 있는지 찾아줘"
-    |     |     3. 결과: 충돌 항목, 합의 항목, 신뢰도 조정
+    |     |     Claude에게 "모순 있는지 찾아줘"
     |     |     => Claude 1회 호출
     |
     |-- [4단계: 최종 판단]
-    |     |
     |     |-- analyst_agent.py
-    |     |     1. 모든 결과 + 교차검증 종합
-    |     |     2. Claude에게 "최종 판단 내려줘"
-    |     |     3. 결과: BUY/HOLD/SELL, Bull/Bear case
+    |     |     Claude에게 "최종 판단 내려줘"
     |     |     => Claude 1회 호출
     |
     v
-  analysis_state (최종 결과 dict)
+  JSON 응답 → React
+
+[API 응답 예시: POST /api/analysis/NVDA]
+
+  {
+      "ticker": "NVDA",
+      "agent_results": {
+          "news":  {"sentiment": "positive", "earnings": "beat", ...},
+          "data":  {"valuation": "fair", "rsi": "neutral-bull", ...},
+          "macro": {"rate_outlook": "hold", "sector_trend": "growth", ...}
+      },
+      "agent_status": {
+          "news": "success",
+          "data": "success",
+          "macro": "success"
+      },
+      "cross_validation": {
+          "conflicts": ["기술지표 과매수 vs 실적 호조"],
+          "agreements": ["성장 모멘텀 3개 Agent 모두 동의"]
+      },
+      "analyst": {
+          "verdict": "BUY",
+          "confidence": "high",
+          "bull_case": "AI 수요 폭발 + 실적 서프라이즈",
+          "bear_case": "밸류에이션 부담 + 금리 리스크",
+          "summary": "성장 모멘텀이 밸류에이션 부담을 상회",
+          "disclaimer": "본 분석은 AI가 생성한 참고 자료이며..."
+      },
+      "errors": []
+  }
 
 [모든 Claude 호출 경로]
 
@@ -168,78 +246,73 @@ AI Stock Analyzer — 전체 데이터 흐름 정리
   analyst_agent.py ----+       |-- JSON 파싱 실패 시 raw_output 저장
                                |-- 하루 100회 하드 리밋 체크
 
-[결과물: analysis_state (dict)]
-
-  analysis_state = {
-      "ticker": "NVDA",
-      "quick_look_data": {...},
-
-      "agent_results": {
-          "news":  {"sentiment": "positive", "earnings": "beat", ...},
-          "data":  {"valuation": "undervalued", "rsi": "overbought", ...},
-          "macro": {"rate_outlook": "hold", "sector_trend": "growth", ...},
-      },
-
-      "agent_status": {
-          "news": "success",
-          "data": "success",
-          "macro": "success",
-      },
-
-      "cross_validation": {
-          "conflicts": ["기술지표 과매수 vs 실적 호조"],
-          "agreements": ["성장 모멘텀 3개 Agent 모두 동의"],
-      },
-
-      "analyst": {
-          "verdict": "BUY",
-          "confidence": "high",
-          "bull_case": "AI 수요 폭발 + 실적 서프라이즈",
-          "bear_case": "밸류에이션 부담 + 금리 리스크",
-          "summary": "성장 모멘텀이 밸류에이션 부담을 상회",
-          "disclaimer": "본 분석은 AI가 생성한 참고 자료이며...",
-      },
-
-      "errors": [],
-  }
-
 
 ================================================================================
-4. STEP 3 — 화면 표시 (Phase 6~8에서 구현)
+5. STEP 3 — React 화면 표시
 ================================================================================
 
-[app.py가 analysis_state를 받아서 화면에 배치]
+[React가 API 응답을 받아서 컴포넌트에 배치]
 
   +-----------------------------------------------------------+
-  |  종합 판단: BUY              신뢰도: HIGH                  |
-  |------------------------------------------------------------|
+  |  QuickLook.tsx                                             |
   |                                                            |
-  |  [뉴스 탭]        <- agent_results["news"]                 |
-  |  "감성: 긍정적, 실적 서프라이즈..."                         |
+  |  <PriceHeader>  ← /api/quote + /api/fundamentals          |
+  |    NVDA $142.50 +2.3%  52W: $40━●━$145  VOL: 342.1M       |
   |                                                            |
-  |  [재무 탭]        <- agent_results["data"]                 |
-  |  "PER 35 -> 섹터 평균 대비 저평가..."                       |
+  |  <KpiCard> x4   ← /api/fundamentals                       |
+  |    Market Cap $3.52T | PE 35.24 | EPS $4.05 | FPE 28.12   |
   |                                                            |
-  |  [경제 탭]        <- agent_results["macro"]                |
-  |  "금리 동결 예상, 반도체 섹터 성장세..."                     |
+  |  <Chart>        ← /api/history                             |
+  |    캔들스틱 + MA50 + MA200 + 볼륨                           |
   |                                                            |
-  |  [교차검증]       <- cross_validation                      |
-  |  "주의: 기술지표 과매수 vs 실적 호조"                       |
+  |  <TechCard> x3  ← /api/technicals                         |
+  |    RSI 62.4 | MACD Positive | Bollinger 148/141/134        |
   |                                                            |
-  |  Bull: AI 수요 폭발          <- analyst["bull_case"]       |
-  |  Bear: 밸류에이션 부담        <- analyst["bear_case"]       |
+  |  <AiRecommendation> ← /api/analysis (캐시된 결과 또는 null) |
+  |    [BUY] Confidence: high                                  |
+  |    "성장 모멘텀이 밸류에이션 부담을 상회"                     |
+  +-----------------------------------------------------------+
+
+[AI 분석 결과 화면]
+
+  +-----------------------------------------------------------+
+  |  AIAnalysis.tsx                                            |
   |                                                            |
-  |  "본 분석은 투자 자문이 아닙니다"                           |
+  |  <AgentProgress>  ← loading 상태                           |
+  |    ● News Agent    ✓ 완료                                  |
+  |    ● Data Agent    ✓ 완료                                  |
+  |    ● Macro Agent   ⟳ 진행 중                               |
+  |    ○ Cross-valid   — 대기                                  |
+  |    ○ Analyst       — 대기                                  |
+  |                                                            |
+  |  <VerdictCard>    ← analyst.verdict + analyst.confidence    |
+  |    [BUY] HIGH                                              |
+  |                                                            |
+  |  <BullBear>       ← analyst.bull_case + analyst.bear_case   |
+  |    Bull: AI 수요 폭발 | Bear: 밸류에이션 부담                |
+  |                                                            |
+  |  면책 조항         ← analyst.disclaimer                     |
   +-----------------------------------------------------------+
 
 
 ================================================================================
-5. 파일 간 역할 분담 정리
+6. 파일 간 역할 분담 정리
 ================================================================================
 
 [파일]                    [역할]                         [비유]
 --------------------------------------------------------------------------
-app.py                    입력 받기 + 결과 보여주기       접수 창구
+--- React (프론트엔드) ---
+App.tsx                   페이지 라우팅                   교통 경찰
+pages/QuickLook.tsx       Quick Look 화면                 접수 창구
+pages/AIAnalysis.tsx      AI 분석 결과 화면               분석 보고서
+hooks/useQuote.ts         API 호출 + 로딩/에러 관리       전화 주문
+theme/ThemeProvider.tsx   Dark/Light 테마 관리            조명 담당
+
+--- FastAPI (백엔드) ---
+backend/main.py           서버 시작 + CORS                정문 경비
+backend/routers/*.py       HTTP 요청 → Python 함수 연결   카운터 직원
+
+--- Python 데이터 계층 ---
 orchestrator.py           분석 흐름 제어 + 실패 처리      팀장
 news_agent.py             뉴스 감성 분석                  뉴스 담당자
 data_agent.py             재무/기술지표 해석              재무 담당자
@@ -251,15 +324,44 @@ api_client.py             외부 데이터 API 통합 + 폴백     데이터 수
 usage_tracker.py          일일 AI 사용량 추적             계량기
 
 [핵심 설계 원칙]
-- app.py는 분석 로직을 전혀 모름 (UI만 담당)
-- orchestrator.py는 화면을 전혀 모름 (로직만 담당)
+- React는 API 엔드포인트만 알면 됨 (Python 함수 존재를 모름)
+- FastAPI는 기존 함수를 감싸기만 함 (로직 변경 없음)
+- data/agents 모듈은 프론트엔드 존재를 모름 (순수 Python)
 - 각 Agent는 자기 분야만 담당 (다른 Agent 존재를 모름)
 - 모든 Claude 호출은 claude_client.py 한 곳을 통과
 - quick_look_data는 한 번만 수집되고 모든 곳에서 재사용
 
 
 ================================================================================
-6. 비용 요약
+7. API 엔드포인트 전체 목록
+================================================================================
+
+  메서드   경로                        호출 함수                    설명
+  -----------------------------------------------------------------------
+  GET      /api/quote/{ticker}         get_quote()                 현재 시세
+  GET      /api/fundamentals/{ticker}  get_fundamentals()          재무 지표
+  GET      /api/technicals/{ticker}    get_technicals()            기술 지표
+  GET      /api/history/{ticker}       get_history()               차트 데이터
+  GET      /api/premarket/{ticker}     get_premarket()             프리마켓
+  GET      /api/market/indices         get_market_indices()        지수 6개
+  GET      /api/market/movers          get_top_movers()            급등락 Top 5
+  GET      /api/market/news            get_market_news()           뉴스
+  POST     /api/analysis/{ticker}      run_analysis()              AI 분석
+  POST     /api/sector/{name}          run_sector_screening()      섹터 스크리닝
+  POST     /api/compare                detect + get_comparison     비교 데이터
+  POST     /api/compare/analyze        run_compare_analysis()      AI 비교 분석
+  GET      /api/watchlist              load + get_quotes           관심종목
+  POST     /api/watchlist/{ticker}     add_to_watchlist()          추가
+  DELETE   /api/watchlist/{ticker}     remove_from_watchlist()     삭제
+  GET      /api/guide/categories       get_categories()            가이드 목록
+  GET      /api/guide/{category}       get_topics()                카테고리별
+  GET      /api/themes                 load_themes()               테마 목록
+  POST     /api/themes                 create_theme()              테마 생성
+  DELETE   /api/themes/{name}          delete_theme()              테마 삭제
+
+
+================================================================================
+8. 비용 요약
 ================================================================================
 
 [1회 Deep Analysis]
@@ -279,3 +381,8 @@ usage_tracker.py          일일 AI 사용량 추적             계량기
   - 캐싱 (같은 종목 1시간 이내 재분석 시 캐시 사용)
   - Quick Look은 AI 미사용 (무료)
   - 80회 도달 시 경고 표시
+
+[인프라 비용]
+  - FastAPI 서버: 로컬 실행 시 무료
+  - React: 로컬 실행 시 무료
+  - 외부 API: 전부 무료 티어 사용

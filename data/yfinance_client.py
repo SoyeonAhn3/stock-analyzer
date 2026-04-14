@@ -92,8 +92,11 @@ class YFinanceClient:
             return None
 
     def get_market_indices(self) -> Optional[dict[str, Any]]:
-        """시장 지수 조회 (S&P500, NASDAQ, DOW, VIX)."""
-        indices = {"SPY": "^GSPC", "NASDAQ": "^IXIC", "DOW": "^DJI", "VIX": "^VIX"}
+        """시장 지수 조회 (S&P500, NASDAQ, DOW, BTC, ETH, VIX)."""
+        indices = {
+            "SPY": "^GSPC", "NASDAQ": "^IXIC", "DOW": "^DJI",
+            "BTC": "BTC-USD", "ETH": "ETH-USD", "VIX": "^VIX",
+        }
         try:
             self._call_count += 1
             result = {}

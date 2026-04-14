@@ -1,8 +1,8 @@
-# Phase 5 — Compare + Watchlist + Guide + Overview `🔲 미시작`
+# Phase 5 — Compare + Watchlist + Guide + Overview `✅ 완료`
 
 > 나머지 기능의 데이터 로직 전부 완성. 화면 전환은 Phase 6으로 분리.
 
-**상태**: 🔲 미시작
+**상태**: ✅ 완료
 **선행 조건**: Phase 4 완료
 
 ---
@@ -17,12 +17,12 @@ Compare Mode(비교 유형 판정, 투자 스타일 분류, AI 비교 분석), W
 
 | # | 모듈 | 상태 | 설명 |
 |---|---|---|---|
-| 1 | `data/compare.py` | 🔲 | 비교 유형 판정 + 데이터 비교 |
-| 2 | `data/style_classifier.py` | 🔲 | 투자자 스타일 분류 (Growth/Value/Balanced) |
-| 3 | `agents/compare_agent.py` | 🔲 | AI 비교 분석 (same/cross 프롬프트 분기) |
-| 4 | `data/watchlist.py` | 🔲 | Watchlist CRUD + 등락률 조회 |
-| 5 | `data/guide_content.py` | 🔲 | 가이드 콘텐츠 딕셔너리 |
-| 6 | `data/market_overview.py` | 🔲 | 시장 지수 + 급등락 + 뉴스 |
+| 1 | `data/compare.py` | ✅ | 비교 유형 판정 + 데이터 비교 |
+| 2 | `data/style_classifier.py` | ✅ | 투자자 스타일 분류 (Growth/Value/Balanced) |
+| 3 | `agents/compare_agent.py` | ✅ | AI 비교 분석 (same/cross 프롬프트 분기) |
+| 4 | `data/watchlist.py` | ✅ | Watchlist CRUD + 등락률 조회 |
+| 5 | `data/guide_content.py` | ✅ | 가이드 콘텐츠 딕셔너리 |
+| 6 | `data/market_overview.py` | ✅ | 시장 지수 + 급등락 + 뉴스 |
 
 ---
 
@@ -220,3 +220,5 @@ def get_market_news(limit=5) -> list[dict]:
 | 날짜 | 내용 |
 |---|---|
 | 2026-04-06 | 최초 작성 |
+| 2026-04-13 | Phase 5 구현 완료. 6개 모듈 구현, 테스트 PASSED. |
+| 2026-04-14 | 문서 상태 ✅ 완료로 업데이트. market_overview에 BTC/ETH 추가. |

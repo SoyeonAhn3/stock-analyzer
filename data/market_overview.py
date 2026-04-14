@@ -25,6 +25,8 @@ INDEX_MAP = {
     "S&P 500": "^GSPC",
     "NASDAQ": "^IXIC",
     "DOW": "^DJI",
+    "BTC": "BTC-USD",
+    "ETH": "ETH-USD",
     "VIX": "^VIX",
 }
 
@@ -48,20 +50,29 @@ def get_market_indices() -> Optional[list[dict[str, Any]]]:
     if raw is None:
         return None
 
+    # raw = {"source": "yfinance", "indices": {"SPY": {...}, ...}}
+    indices_data = raw.get("indices", raw)
+
     results = []
     for display_name, yf_symbol in INDEX_MAP.items():
         key = display_name.replace("&", "").replace(" ", "")
-        # api_client.get_market_indices()는 SPY, NASDAQ, DOW, VIX 키로 반환
-        api_key_map = {"SP500": "SPY", "NASDAQ": "NASDAQ", "DOW": "DOW", "VIX": "VIX"}
+        api_key_map = {
+            "SP500": "SPY", "NASDAQ": "NASDAQ", "DOW": "DOW",
+            "BTC": "BTC", "ETH": "ETH", "VIX": "VIX",
+        }
         api_key = api_key_map.get(key, key)
-        idx_data = raw.get(api_key, {})
+        idx_data = indices_data.get(api_key, {})
         if idx_data:
+            price = idx_data.get("price")
+            prev = idx_data.get("previous_close")
+            change = round(price - prev, 2) if price and prev else idx_data.get("change")
+            change_pct = idx_data.get("change_pct") or idx_data.get("change_percent")
             results.append({
                 "symbol": display_name,
                 "yf_symbol": yf_symbol,
-                "price": idx_data.get("price"),
-                "change": idx_data.get("change"),
-                "change_percent": idx_data.get("change_percent"),
+                "price": price,
+                "change": change,
+                "change_percent": change_pct,
             })
 
     if results:

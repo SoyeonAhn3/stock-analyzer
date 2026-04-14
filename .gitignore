@@ -10,6 +10,11 @@ logs/
 archive/
 output/
 
+# Database
+data/app.db
+data/app.db-wal
+data/app.db-shm
+
 # Python
 __pycache__/
 *.pyc

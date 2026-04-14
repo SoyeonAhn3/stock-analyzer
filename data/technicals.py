@@ -110,7 +110,11 @@ def _try_api(ticker: str) -> Optional[dict[str, Any]]:
     if macd_data and macd_data.get("values"):
         mv = macd_data["values"][0]
         sig, detail = _macd_signal(mv["macd"], mv["signal"], mv["histogram"])
-        result["macd"] = {"signal": sig, "detail": detail}
+        result["macd"] = {
+            "histogram": round(float(mv["histogram"]), 2),
+            "signal": sig,
+            "detail": detail,
+        }
     else:
         result["macd"] = None
 
@@ -119,7 +123,13 @@ def _try_api(ticker: str) -> Optional[dict[str, Any]]:
     if bb_data and bb_data.get("values") and price:
         bv = bb_data["values"][0]
         sig, pos = _bbands_signal(price, bv["upper"], bv["lower"], bv["middle"])
-        result["bollinger"] = {"position": pos, "signal": sig}
+        result["bollinger"] = {
+            "upper": round(float(bv["upper"]), 2),
+            "middle": round(float(bv["middle"]), 2),
+            "lower": round(float(bv["lower"]), 2),
+            "position": pos,
+            "signal": sig,
+        }
     else:
         result["bollinger"] = None
 
@@ -180,7 +190,11 @@ def _calc_from_history(ticker: str) -> Optional[dict[str, Any]]:
             s = float(macd_data["signal"].dropna().iloc[-1])
             h = float(macd_data["histogram"].dropna().iloc[-1])
             sig, detail = _macd_signal(m, s, h)
-            result["macd"] = {"signal": sig, "detail": detail}
+            result["macd"] = {
+                "histogram": round(h, 2),
+                "signal": sig,
+                "detail": detail,
+            }
         else:
             result["macd"] = None
 
@@ -191,7 +205,13 @@ def _calc_from_history(ticker: str) -> Optional[dict[str, Any]]:
             lower = float(bb_data["lower"].dropna().iloc[-1])
             middle = float(bb_data["middle"].dropna().iloc[-1])
             sig, pos = _bbands_signal(price, upper, lower, middle)
-            result["bollinger"] = {"position": pos, "signal": sig}
+            result["bollinger"] = {
+                "upper": round(upper, 2),
+                "middle": round(middle, 2),
+                "lower": round(lower, 2),
+                "position": pos,
+                "signal": sig,
+            }
         else:
             result["bollinger"] = None
 
