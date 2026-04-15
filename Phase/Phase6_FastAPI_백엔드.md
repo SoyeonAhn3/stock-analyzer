@@ -1,8 +1,8 @@
-# Phase 6 — FastAPI 백엔드 `🔲 미시작`
+# Phase 6 — FastAPI 백엔드 `✅ 완료`
 
 > 기존 data/agents 함수를 HTTP API로 노출하는 FastAPI 서버 구축
 
-**상태**: 🔲 미시작
+**상태**: ✅ 완료
 **선행 조건**: Phase 5 완료 (모든 데이터/AI 로직 구현 완료)
 **기술 스택**: Python, FastAPI, Uvicorn, Pydantic
 
@@ -26,15 +26,18 @@ Java Spring의 DTO        = Pydantic 모델 (schemas.py)
 
 | # | 모듈 | 상태 | 설명 |
 |---|---|---|---|
-| 1 | `backend/main.py` | 🔲 | FastAPI 앱 생성 + CORS + 라우터 등록 |
-| 2 | `backend/routers/quote.py` | 🔲 | 시세/재무/기술지표/차트 엔드포인트 |
-| 3 | `backend/routers/market.py` | 🔲 | 시장 지수/급등락/뉴스 엔드포인트 |
-| 4 | `backend/routers/analysis.py` | 🔲 | AI 분석 실행 엔드포인트 (async) |
-| 5 | `backend/routers/sector.py` | 🔲 | 섹터 스크리닝/테마 엔드포인트 |
-| 6 | `backend/routers/compare.py` | 🔲 | 종목 비교 엔드포인트 |
-| 7 | `backend/routers/watchlist.py` | 🔲 | 관심종목 CRUD 엔드포인트 |
-| 8 | `backend/routers/guide.py` | 🔲 | 가이드 콘텐츠 엔드포인트 |
-| 9 | `backend/schemas.py` | 🔲 | Pydantic 요청/응답 모델 |
+| # | 모듈 | 상태 | 설명 |
+|---|---|---|---|
+| 1 | `backend/main.py` | ✅ | FastAPI 앱 생성 + CORS(동적) + 라우터 등록 + DB 초기화 |
+| 2 | `backend/routers/quote.py` | ✅ | 시세/재무/기술지표/차트 엔드포인트 |
+| 3 | `backend/routers/market.py` | ✅ | 시장 지수/급등락/뉴스 엔드포인트 |
+| 4 | `backend/routers/analysis.py` | ✅ | AI 분석 실행 엔드포인트 (async) |
+| 5 | `backend/routers/sector.py` | ✅ | 섹터 스크리닝/테마 엔드포인트 |
+| 6 | `backend/routers/compare.py` | ✅ | 종목 비교 엔드포인트 |
+| 7 | `backend/routers/watchlist.py` | ✅ | 관심종목 CRUD 엔드포인트 |
+| 8 | `backend/routers/guide.py` | ✅ | 가이드 콘텐츠 엔드포인트 |
+| 9 | `backend/routers/search.py` | ✅ | 검색 자동완성 엔드포인트 (Phase 10 연계) |
+| 10 | `backend/routers/alerts.py` | ✅ | 가격 알림 CRUD 엔드포인트 (Phase 10 연계) |
 
 ---
 
@@ -71,29 +74,42 @@ stock-analyzer/
 ### 핵심 코드 구조
 
 ```python
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from backend.routers import quote, market, analysis, sector, compare, watchlist, guide, search, alerts
+from data.database import init_db
 
-from backend.routers import quote, market, analysis, sector, compare, watchlist, guide
+app = FastAPI(title="AI Stock Analyzer API", version="1.0",
+              description="Multi-Agent 미국 주식 종합 분석 시스템 API")
 
-app = FastAPI(title="AI Stock Analyzer API", version="1.0")
+# CORS — 로컬 개발 + Netlify 프로덕션 도메인 허용 (환경변수로 동적 설정)
+_origins = ["http://localhost:3000", "http://localhost:5173"]
+_extra = os.environ.get("CORS_ORIGINS", "")
+if _extra:
+    _origins.extend([o.strip() for o in _extra.split(",") if o.strip()])
 
-# CORS — React 개발 서버(localhost:3000)에서 접근 허용
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 라우터 등록
-app.include_router(quote.router,     prefix="/api")
-app.include_router(market.router,    prefix="/api")
-app.include_router(analysis.router,  prefix="/api")
-app.include_router(sector.router,    prefix="/api")
-app.include_router(compare.router,   prefix="/api")
-app.include_router(watchlist.router, prefix="/api")
-app.include_router(guide.router,     prefix="/api")
+# 라우터 등록 (태그 포함)
+app.include_router(quote.router,     prefix="/api", tags=["Quote"])
+app.include_router(market.router,    prefix="/api", tags=["Market"])
+app.include_router(analysis.router,  prefix="/api", tags=["Analysis"])
+app.include_router(sector.router,    prefix="/api", tags=["Sector"])
+app.include_router(compare.router,   prefix="/api", tags=["Compare"])
+app.include_router(watchlist.router, prefix="/api", tags=["Watchlist"])
+app.include_router(guide.router,     prefix="/api", tags=["Guide"])
+app.include_router(search.router,    prefix="/api", tags=["Search"])
+app.include_router(alerts.router,    prefix="/api", tags=["Alerts"])
+
+# DB 초기화 (테이블 생성 + JSON 마이그레이션)
+init_db()
 ```
 
 ### CORS란?
@@ -285,3 +301,5 @@ def quote(ticker: str):
 |---|---|
 | 2026-04-06 | 최초 작성 (Streamlit UI 기반) |
 | 2026-04-14 | React 전환 결정 — FastAPI 백엔드로 전면 재작성 |
+| 2026-04-14 | ✅ 구현 완료 — 9개 라우터 + CORS 동적 설정 + SQLite init_db() 연동 |
+| 2026-04-15 | search.py, alerts.py 라우터 추가 반영 (Phase 10 연계) |

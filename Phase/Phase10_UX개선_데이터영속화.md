@@ -1,8 +1,8 @@
-# Phase 10 — UX 개선 + 데이터 영속화 `🔲 미시작`
+# Phase 10 — UX 개선 + 데이터 영속화 `✅ 완료`
 
 > 검색 자동완성, Watchlist UI, SQLite 영속화, 가격 알림, 반응형 레이아웃
 
-**상태**: 🔲 미시작
+**상태**: ✅ 완료
 **선행 조건**: Phase 9 완료 (모든 화면 구현 + 면책 조항 배치)
 
 ---
@@ -17,11 +17,11 @@ MVP 완성 후 실사용 관점에서 가장 효과 높은 5가지 개선을 수
 
 | # | 모듈 | 상태 | 설명 |
 |---|---|---|---|
-| 1 | 검색 자동완성 | 🔲 | S&P 500 종목 리스트 기반 드롭다운 |
-| 2 | Watchlist 버튼 | 🔲 | Quick Look에 Add/Remove Watchlist 토글 |
-| 3 | SQLite 영속화 | 🔲 | Watchlist + Themes + AI 캐시 → SQLite |
-| 4 | 가격 알림 | 🔲 | 목표가 설정 + 도달 시 알림 UI |
-| 5 | 반응형 레이아웃 | 🔲 | 모바일/태블릿 대응 |
+| 1 | 검색 자동완성 | ✅ | `SearchAutocomplete.tsx` + `backend/routers/search.py` + `data/ticker_list.py` |
+| 2 | Watchlist 버튼 | ✅ | `WatchlistButton.tsx` — Quick Look에 Add/Remove 토글 |
+| 3 | SQLite 영속화 | ✅ | `data/database.py` + `data/analysis_cache.py` — Watchlist/Themes/AI 캐시 → SQLite |
+| 4 | 가격 알림 | ✅ | `AlertModal.tsx` + `AlertToast.tsx` + `useAlerts.ts` + `data/alerts.py` + `backend/routers/alerts.py` |
+| 5 | 반응형 레이아웃 | ✅ | `useBreakpoint.ts` — 모바일/태블릿 대응 |
 
 ---
 
@@ -401,3 +401,4 @@ Step 5: 반응형 레이아웃 (#5)
 | 날짜 | 내용 |
 |---|---|
 | 2026-04-14 | 신규 작성 — UX 개선 5개 항목 + SQLite 영속화 계획 |
+| 2026-04-14 | ✅ 전체 구현 완료 — 5개 항목 모두 구현 + Koyeb/Netlify 배포 설정 |

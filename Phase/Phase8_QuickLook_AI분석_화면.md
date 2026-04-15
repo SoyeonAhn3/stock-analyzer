@@ -1,8 +1,8 @@
-# Phase 8 — Quick Look + AI 분석 결과 화면 `🔲 미시작`
+# Phase 8 — Quick Look + AI 분석 결과 화면 `✅ 완료`
 
 > 가장 자주 사용되는 두 핵심 화면을 React 컴포넌트로 구현
 
-**상태**: 🔲 미시작
+**상태**: ✅ 완료
 **선행 조건**: Phase 7 완료 (React 뼈대 + 디자인 시스템 + 사이드바 동작)
 **디자인 권위 문서**: `pre-requirement/design-spec.md` 6장
 
@@ -18,19 +18,19 @@ Quick Look 화면(시세 헤더, KPI 카드, 캔들스틱 차트, 기술 지표 
 
 | # | 모듈 | 상태 | 설명 |
 |---|---|---|---|
-| 1 | `pages/QuickLook.tsx` | 🔲 | Quick Look 전체 화면 |
-| 2 | `components/PriceHeader.tsx` | 🔲 | 시세 헤더 (가격+등락+52W Range) |
-| 3 | `components/KpiCard.tsx` | 🔲 | KPI 카드 (Market Cap, PE, EPS, Forward PE) |
-| 4 | `components/Chart.tsx` | 🔲 | 캔들스틱 + MA + 볼륨 차트 |
-| 5 | `components/TechCard.tsx` | 🔲 | RSI / MACD / Bollinger 카드 |
-| 6 | `components/AiRecommendation.tsx` | 🔲 | AI Recommendation 카드 |
-| 7 | `components/Tooltip.tsx` | 🔲 | 인라인 툴팁 |
-| 8 | `components/SignalBadge.tsx` | 🔲 | bullish/bearish/neutral 뱃지 |
-| 9 | `pages/AIAnalysis.tsx` | 🔲 | AI 분석 결과 화면 |
-| 10 | `components/AgentProgress.tsx` | 🔲 | Agent 5단계 진행 표시 |
-| 11 | `components/VerdictCard.tsx` | 🔲 | BUY/HOLD/SELL 판정 카드 |
-| 12 | `hooks/useQuote.ts` | 🔲 | 시세 데이터 hook |
-| 13 | `hooks/useAnalysis.ts` | 🔲 | AI 분석 hook |
+| 1 | `pages/QuickLook.tsx` | ✅ | Quick Look 전체 화면 |
+| 2 | `components/PriceHeader.tsx` | ✅ | 시세 헤더 (가격+등락+52W Range) |
+| 3 | `components/KpiCard.tsx` | ✅ | KPI 카드 (Market Cap, PE, EPS, Forward PE) |
+| 4 | `components/Chart.tsx` | ✅ | 캔들스틱 + MA + 볼륨 차트 |
+| 5 | `components/TechCard.tsx` | ✅ | RSI / MACD / Bollinger 카드 |
+| 6 | `components/AiRecommendation.tsx` | ✅ | AI Recommendation 카드 |
+| 7 | `components/Tooltip.tsx` | ✅ | 인라인 툴팁 |
+| 8 | `components/SignalBadge.tsx` | ✅ | bullish/bearish/neutral 뱃지 |
+| 9 | `pages/AIAnalysis.tsx` | ✅ | AI 분석 결과 화면 |
+| 10 | `components/LoadingSkeleton.tsx` | ✅ | 로딩 스켈레톤 UI |
+| 11 | `components/ErrorBanner.tsx` | ✅ | 에러 배너 컴포넌트 |
+| 12 | `hooks/useQuote.ts` | ✅ | 시세 데이터 hook |
+| 13 | `hooks/useAnalysis.ts` | ✅ | AI 분석 hook |
 
 ---
 
@@ -241,3 +241,5 @@ function useAnalysis(ticker: string) {
 |---|---|
 | 2026-04-06 | 최초 작성 (Streamlit Quick Look + AI 결과 UI) |
 | 2026-04-14 | React 전환 — React 컴포넌트 기반으로 전면 재작성 |
+| 2026-04-14 | ✅ 구현 완료 — QuickLook + AIAnalysis 페이지 + 10개 컴포넌트 + 2개 hook |
+| 2026-04-15 | AgentProgress/VerdictCard → LoadingSkeleton/ErrorBanner로 설계 변경 반영 |
