@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { QuoteResponse, FundamentalsResponse, TechnicalsResponse } from '../types/api';
-
-const API = '/api';
+import { API_BASE } from '../config';
 
 interface UseQuoteResult {
   quote: QuoteResponse | null;
@@ -29,7 +28,7 @@ export function useQuote(ticker: string | undefined): UseQuoteResult {
     setError(null);
 
     const fetchJson = (path: string) =>
-      fetch(`${API}${path}`).then((r) => {
+      fetch(`${API_BASE}${path}`).then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       });

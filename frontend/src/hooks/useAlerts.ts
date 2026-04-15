@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { API_BASE } from '../config';
 
 interface Alert {
   id: number;
@@ -18,14 +19,14 @@ export function useAlerts() {
   const [triggered, setTriggered] = useState<TriggeredAlert[]>([]);
 
   const fetchAlerts = useCallback(() => {
-    fetch('/api/alerts')
+    fetch(`${API_BASE}/alerts`)
       .then((r) => r.json())
       .then((data) => setAlerts(data.alerts ?? []))
       .catch(() => {});
   }, []);
 
   const checkTriggered = useCallback(() => {
-    fetch('/api/alerts/triggered')
+    fetch(`${API_BASE}/alerts/triggered`)
       .then((r) => r.json())
       .then((data) => {
         const newTriggered = data.triggered ?? [];
@@ -49,7 +50,7 @@ export function useAlerts() {
   }, [checkTriggered]);
 
   const createAlert = (ticker: string, target_price: number, direction: string) => {
-    return fetch('/api/alerts', {
+    return fetch(`${API_BASE}/alerts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ticker, target_price, direction }),
@@ -61,7 +62,7 @@ export function useAlerts() {
   };
 
   const deleteAlert = (id: number) => {
-    return fetch(`/api/alerts/${id}`, { method: 'DELETE' })
+    return fetch(`${API_BASE}/alerts/${id}`, { method: 'DELETE' })
       .then((r) => {
         if (!r.ok) throw new Error();
         fetchAlerts();

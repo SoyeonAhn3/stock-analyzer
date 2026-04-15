@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { AnalysisResult } from '../types/api';
+import { API_BASE } from '../config';
 
 /** AI 분석 수동 실행 hook — trigger()로 호출 */
 export function useAnalysis(ticker: string | undefined) {
@@ -13,7 +14,7 @@ export function useAnalysis(ticker: string | undefined) {
     setError(null);
     setResult(null);
 
-    fetch(`/api/analysis/${ticker}`, { method: 'POST' })
+    fetch(`${API_BASE}/analysis/${ticker}`, { method: 'POST' })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();

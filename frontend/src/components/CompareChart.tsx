@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createChart, type IChartApi, LineSeries, ColorType } from 'lightweight-charts';
 import { useTheme } from '../theme/ThemeProvider';
 import { FONT_SIZES, SPACING, RADIUS } from '../theme/tokens';
+import { API_BASE } from '../config';
 import type { HistoryRecord } from '../types/api';
 
 const LINE_COLORS = ['#00D4FF', '#F59E0B', '#10B981', '#EF4444', '#A78BFA'];
@@ -49,7 +50,7 @@ export default function CompareChart({ tickers }: Props) {
 
     Promise.all(
       tickers.map((t) =>
-        fetch(`/api/history/${t}?period=1Y`)
+        fetch(`${API_BASE}/history/${t}?period=1Y`)
           .then((r) => (r.ok ? r.json() : []))
           .then((records: HistoryRecord[]) => ({ ticker: t, records }))
       )

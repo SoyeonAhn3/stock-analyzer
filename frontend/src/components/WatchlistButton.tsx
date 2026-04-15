@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../theme/ThemeProvider';
 import { FONT_SIZES, SPACING, RADIUS } from '../theme/tokens';
+import { API_BASE } from '../config';
 
 interface Props {
   ticker: string;
@@ -13,7 +14,7 @@ export default function WatchlistButton({ ticker }: Props) {
 
   useEffect(() => {
     if (!ticker) return;
-    fetch('/api/watchlist')
+    fetch(`${API_BASE}/watchlist`)
       .then((r) => r.json())
       .then((data) => {
         setInWatchlist(data.tickers?.includes(ticker.toUpperCase()) ?? false);
@@ -29,7 +30,7 @@ export default function WatchlistButton({ ticker }: Props) {
     setInWatchlist(willAdd);
     setLoading(true);
 
-    const url = `/api/watchlist/${upper}`;
+    const url = `${API_BASE}/watchlist/${upper}`;
     const method = willAdd ? 'POST' : 'DELETE';
 
     fetch(url, { method })

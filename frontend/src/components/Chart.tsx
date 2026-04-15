@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createChart, type IChartApi, type ISeriesApi, CandlestickSeries, HistogramSeries, LineSeries, ColorType } from 'lightweight-charts';
 import { useTheme } from '../theme/ThemeProvider';
 import { FONT_SIZES, SPACING, RADIUS } from '../theme/tokens';
+import { API_BASE } from '../config';
 import type { HistoryRecord } from '../types/api';
 
 const PERIODS = ['1D', '1W', '1M', '3M', '6M', '1Y', '5Y'] as const;
@@ -115,7 +116,7 @@ export default function Chart({ ticker }: Props) {
     if (!ticker) return;
     setLoading(true);
 
-    fetch(`/api/history/${ticker}?period=${period}`)
+    fetch(`${API_BASE}/history/${ticker}?period=${period}`)
       .then((r) => (r.ok ? r.json() : []))
       .then((records: HistoryRecord[]) => {
         if (!records.length) return;

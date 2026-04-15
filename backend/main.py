@@ -1,5 +1,7 @@
 """FastAPI 메인 앱 — CORS 설정 + 라우터 등록."""
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -12,13 +14,18 @@ app = FastAPI(
     description="Multi-Agent 미국 주식 종합 분석 시스템 API",
 )
 
-# CORS — React 개발 서버(localhost:5173)에서 접근 허용
+# CORS — 로컬 개발 + Netlify 프로덕션 도메인 허용
+_origins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+]
+_extra = os.environ.get("CORS_ORIGINS", "")
+if _extra:
+    _origins.extend([o.strip() for o in _extra.split(",") if o.strip()])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5173",  # Vite 기본 포트
-    ],
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

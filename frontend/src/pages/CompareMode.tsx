@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../theme/ThemeProvider';
 import { FONTS, FONT_SIZES, SPACING, RADIUS } from '../theme/tokens';
+import { API_BASE } from '../config';
 import ErrorBanner from '../components/ErrorBanner';
 import CompareChart from '../components/CompareChart';
 
@@ -46,7 +47,7 @@ export default function CompareMode() {
     if (list.length < 2) return;
     setLoading(true);
     setError(null);
-    fetch('/api/compare', {
+    fetch(`${API_BASE}/compare`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tickers: list }),
@@ -59,7 +60,7 @@ export default function CompareMode() {
 
   const runAiCompare = () => {
     setAiLoading(true);
-    fetch('/api/compare/analyze', {
+    fetch(`${API_BASE}/compare/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tickers }),

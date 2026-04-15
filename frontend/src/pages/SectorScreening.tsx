@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../theme/ThemeProvider';
 import { FONTS, FONT_SIZES, SPACING, RADIUS } from '../theme/tokens';
 import { useApi } from '../hooks/useApi';
+import { API_BASE } from '../config';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import ErrorBanner from '../components/ErrorBanner';
 
@@ -49,7 +50,7 @@ export default function SectorScreening() {
     // Simulate stage progression
     const stageTimer = setTimeout(() => setScreenStage(2), 8000);
 
-    fetch(`/api/sector/${name}`, { method: 'POST' })
+    fetch(`${API_BASE}/sector/${name}`, { method: 'POST' })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
@@ -69,7 +70,7 @@ export default function SectorScreening() {
     if (!name || tickers.length === 0) return;
 
     setThemeCreating(true);
-    fetch('/api/themes', {
+    fetch(`${API_BASE}/themes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, tickers, preset: name }),
@@ -85,7 +86,7 @@ export default function SectorScreening() {
   };
 
   const handleDeleteTheme = (name: string) => {
-    fetch(`/api/themes/${name}`, { method: 'DELETE' })
+    fetch(`${API_BASE}/themes/${name}`, { method: 'DELETE' })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         themes.refetch();

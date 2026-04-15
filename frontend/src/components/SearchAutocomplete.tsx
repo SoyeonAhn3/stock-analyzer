@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../theme/ThemeProvider';
 import { FONTS, FONT_SIZES, SPACING, RADIUS } from '../theme/tokens';
+import { API_BASE } from '../config';
 
 interface SearchResult {
   ticker: string;
@@ -16,7 +17,7 @@ export default function SearchAutocomplete() {
   const [show, setShow] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Debounced search
   useEffect(() => {
@@ -28,7 +29,7 @@ export default function SearchAutocomplete() {
 
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
-      fetch(`/api/search?q=${encodeURIComponent(query.trim())}&limit=8`)
+      fetch(`${API_BASE}/search?q=${encodeURIComponent(query.trim())}&limit=8`)
         .then((r) => r.json())
         .then((data) => {
           setResults(data.results ?? []);

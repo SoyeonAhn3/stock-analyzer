@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-
-const API_BASE = '/api';
+import { API_BASE } from '../config';
 
 interface UseApiResult<T> {
   data: T | null;
