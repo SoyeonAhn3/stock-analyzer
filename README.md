@@ -300,3 +300,13 @@ stock-analyzer/
 | 2026-04-14 | Koyeb + Netlify 배포 설정 — API Base URL 환경변수화 + CORS 동적 설정. |
 | 2026-04-15 | Phase 6~10 문서 상태 업데이트 — 🔲 미시작 → ✅ 완료 반영. |
 | 2026-04-15 | README 프로젝트 구조 전면 최신화 — 누락 파일 24개 추가, schemas.py/UI.txt 참조 제거. |
+| 2026-04-18 | GAINERS/LOSERS 정렬 수정 — 알파벳순 → 등락률 상위/하위 5개로 변경. |
+| 2026-04-18 | P/E Ratio 적자 기업 표시 수정 — trailingPE null 시 price/eps 수동 계산. |
+| 2026-04-18 | AI 분석 JSON 파싱 안정화 — Claude prefill 기법 적용 + 데이터 구조 평탄화. |
+| 2026-04-18 | Sector Screening GICS→Finviz 매핑 5개 추가 (Information Technology, Health Care 등). |
+| 2026-04-18 | Watchlist 해제 즉시 반영 — 커스텀 이벤트 기반 Sidebar 갱신. |
+| 2026-04-18 | BACKLOG.md 생성 — 향후 개발 사항 8개 항목 관리. |
+| 2026-04-19 | AI 분석 품질 개선 — Analyst 프롬프트 HOLD 편향 제거 + CV 관점차이/모순 구분. |
+| 2026-04-19 | Compare 크래시 수정 — 프롬프트 중첩객체→문자열 + safeRender 방어 렌더링. |
+| 2026-04-19 | Guide 차트 마커 — Lightweight Charts setMarkers() 활용, 4개 패턴에 실데이터 마커 추가. |
+| 2026-04-19 | 차트 기간 수정 — 1D 매핑 추가(5분봉), 1W 제거(1D와 중복). |

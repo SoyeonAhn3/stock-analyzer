@@ -113,15 +113,16 @@ def _build_same_sector_prompt(tickers: list[str],
     "{tickers[1]}": ["리스크1", "리스크2"]
   }},
   "recommendation_by_style": {{
-    "growth_investor": {{"pick": "...", "reason": "..."}},
-    "value_investor": {{"pick": "...", "reason": "..."}},
-    "balanced_investor": {{"pick": "...", "reason": "..."}}
+    "growth_investor": "추천 종목과 이유를 한 문장으로.",
+    "value_investor": "추천 종목과 이유를 한 문장으로.",
+    "balanced_investor": "추천 종목과 이유를 한 문장으로."
   }},
   "blind_spots": ["주의점1", "주의점2"],
   "summary": "2~3줄 요약"
 }}
 
-주의: 아래 데이터에 없는 숫자를 만들어내지 마세요."""
+주의: 모든 값은 반드시 문자열(string)로 작성해. 중첩 객체(object)를 값으로 쓰지 마.
+아래 데이터에 없는 숫자를 만들어내지 마세요."""
 
     return system_prompt, user_message
 
@@ -144,31 +145,32 @@ def _build_cross_sector_prompt(tickers: list[str],
 아래 JSON 형식으로 크로스 섹터 비교 분석을 해주세요:
 {{
   "sector_context": {{
-    "{tickers[0]}": {{"sector": "...", "key_driver": "...", "sector_outlook": "..."}},
-    "{tickers[1]}": {{"sector": "...", "key_driver": "...", "sector_outlook": "..."}}
+    "{tickers[0]}": "섹터명. 핵심 동력 설명. 전망 한 줄.",
+    "{tickers[1]}": "섹터명. 핵심 동력 설명. 전망 한 줄."
   }},
   "valuation_vs_sector": {{
-    "{tickers[0]}": {{"pe_vs_sector": "...", "assessment": "..."}},
-    "{tickers[1]}": {{"pe_vs_sector": "...", "assessment": "..."}}
+    "{tickers[0]}": "섹터 평균 PER 대비 평가 한 줄.",
+    "{tickers[1]}": "섹터 평균 PER 대비 평가 한 줄."
   }},
   "sector_neutral_metrics": {{
-    "{tickers[0]}": {{"fcf_yield": "...", "roe": "...", "de_ratio": "..."}},
-    "{tickers[1]}": {{"fcf_yield": "...", "roe": "...", "de_ratio": "..."}}
+    "{tickers[0]}": "FCF Yield, ROE, D/E 요약 한 줄.",
+    "{tickers[1]}": "FCF Yield, ROE, D/E 요약 한 줄."
   }},
   "macro_scenarios": {{
-    "rate_hold": {{"winner": "...", "reason": "..."}},
-    "recession": {{"winner": "...", "reason": "..."}}
+    "rate_hold": "유리한 종목과 이유를 한 문장으로.",
+    "recession": "유리한 종목과 이유를 한 문장으로."
   }},
   "diversification_value": "포트폴리오 분산 관점 평가",
   "recommendation_by_style": {{
-    "growth_investor": {{"pick": "...", "reason": "..."}},
-    "value_investor": {{"pick": "...", "reason": "..."}},
-    "balanced_investor": {{"pick": "...", "reason": "..."}}
+    "growth_investor": "추천 종목과 이유를 한 문장으로.",
+    "value_investor": "추천 종목과 이유를 한 문장으로.",
+    "balanced_investor": "추천 종목과 이유를 한 문장으로."
   }},
   "blind_spots": ["주의점1", "주의점2"],
   "summary": "2~3줄 요약"
 }}
 
-주의: 아래 데이터에 없는 숫자를 만들어내지 마세요."""
+주의: 모든 값은 반드시 문자열(string)로 작성해. 중첩 객체(object)를 값으로 쓰지 마.
+아래 데이터에 없는 숫자를 만들어내지 마세요."""
 
     return system_prompt, user_message

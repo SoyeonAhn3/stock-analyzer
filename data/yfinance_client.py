@@ -69,13 +69,20 @@ class YFinanceClient:
             info = stock.info
             if not info or "symbol" not in info:
                 return None
+            # 적자 기업은 yfinance가 trailingPE=null로 반환 → price/eps로 직접 계산
+            pe_ratio = info.get("trailingPE")
+            eps = info.get("trailingEps")
+            if pe_ratio is None and eps:
+                price = info.get("currentPrice") or info.get("regularMarketPrice")
+                if price:
+                    pe_ratio = round(price / eps, 4)
             return {
                 "source": "yfinance",
                 "ticker": ticker,
                 "market_cap": info.get("marketCap"),
-                "pe_ratio": info.get("trailingPE"),
+                "pe_ratio": pe_ratio,
                 "forward_pe": info.get("forwardPE"),
-                "eps": info.get("trailingEps"),
+                "eps": eps,
                 "peg_ratio": info.get("pegRatio"),
                 "dividend_yield": info.get("dividendYield"),
                 "debt_to_equity": info.get("debtToEquity"),

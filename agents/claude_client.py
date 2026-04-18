@@ -57,13 +57,17 @@ def call_claude(system_prompt: str, user_message: str) -> dict[str, Any]:
             model=CLAUDE_MODEL,
             max_tokens=CLAUDE_MAX_TOKENS,
             system=system_prompt,
-            messages=[{"role": "user", "content": user_message}],
+            messages=[
+                {"role": "user", "content": user_message},
+                {"role": "assistant", "content": "{"},
+            ],
+            stop_sequences=["```"],
         )
 
         # 사용량 카운트
         usage_tracker.increment()
 
-        raw_text = response.content[0].text
+        raw_text = "{" + response.content[0].text
         logger.info("Claude 응답 수신 (tokens: input=%s, output=%s)",
                      response.usage.input_tokens, response.usage.output_tokens)
 

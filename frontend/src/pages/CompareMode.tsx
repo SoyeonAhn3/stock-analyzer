@@ -11,6 +11,16 @@ interface CompareData {
   data: Record<string, any>;
 }
 
+function safeRender(val: any): string {
+  if (val == null) return '--';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number') return String(val);
+  if (typeof val === 'object' && !Array.isArray(val)) {
+    return Object.entries(val).map(([k, v]) => `${k}: ${v}`).join('. ');
+  }
+  return JSON.stringify(val);
+}
+
 export default function CompareMode() {
   const { theme } = useTheme();
   const navigate = useNavigate();
@@ -278,7 +288,7 @@ export default function CompareMode() {
                     {category}:
                   </span>{' '}
                   <span style={{ color: theme.text_primary, fontSize: FONT_SIZES.sm }}>
-                    {typeof ranking === 'string' ? ranking : JSON.stringify(ranking)}
+                    {safeRender(ranking)}
                   </span>
                 </div>
               ))}
@@ -291,11 +301,11 @@ export default function CompareMode() {
               <div style={{ color: theme.accent, fontSize: FONT_SIZES.xs, fontWeight: 600, letterSpacing: '0.05em', marginBottom: SPACING.sm }}>
                 SECTOR CONTEXT
               </div>
-              {Object.entries(aiResult.analysis.sector_context as Record<string, string>).map(([ticker, context]) => (
+              {Object.entries(aiResult.analysis.sector_context as Record<string, any>).map(([ticker, context]) => (
                 <div key={ticker} style={{ padding: `${SPACING.sm} 0`, borderBottom: `1px solid ${theme.border}` }}>
                   <span style={{ color: theme.accent, fontSize: FONT_SIZES.sm, fontWeight: 700, fontFamily: FONTS.numeric }}>{ticker}</span>
                   <p style={{ color: theme.text_secondary, fontSize: FONT_SIZES.sm, marginTop: SPACING.xs, lineHeight: 1.5 }}>
-                    {context}
+                    {safeRender(context)}
                   </p>
                 </div>
               ))}
@@ -327,10 +337,10 @@ export default function CompareMode() {
               <div style={{ color: theme.warning, fontSize: FONT_SIZES.xs, fontWeight: 600, letterSpacing: '0.05em', marginBottom: SPACING.sm }}>
                 MACRO SCENARIOS
               </div>
-              {Object.entries(aiResult.analysis.macro_scenarios as Record<string, string>).map(([scenario, impact]) => (
+              {Object.entries(aiResult.analysis.macro_scenarios as Record<string, any>).map(([scenario, impact]) => (
                 <div key={scenario} style={{ padding: `${SPACING.sm} 0`, borderBottom: `1px solid ${theme.border}` }}>
                   <span style={{ color: theme.text_primary, fontSize: FONT_SIZES.sm, fontWeight: 600 }}>{scenario}:</span>{' '}
-                  <span style={{ color: theme.text_secondary, fontSize: FONT_SIZES.sm }}>{impact}</span>
+                  <span style={{ color: theme.text_secondary, fontSize: FONT_SIZES.sm }}>{safeRender(impact)}</span>
                 </div>
               ))}
             </div>

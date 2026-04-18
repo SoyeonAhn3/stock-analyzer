@@ -5,6 +5,7 @@ import { useApi } from '../hooks/useApi';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import ErrorBanner from '../components/ErrorBanner';
+import Tooltip from '../components/Tooltip';
 
 interface Mover {
   ticker: string;
@@ -59,8 +60,9 @@ export default function MarketOverview() {
       <div style={{ display: 'grid', gridTemplateColumns: bp === 'mobile' ? '1fr' : '1fr 1fr', gap: SPACING.lg }}>
         {/* Movers */}
         <div style={cardStyle}>
-          <div style={{ color: theme.text_muted, fontSize: FONT_SIZES.xs, fontWeight: 600, letterSpacing: '0.05em', marginBottom: SPACING.md }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm, color: theme.text_muted, fontSize: FONT_SIZES.xs, fontWeight: 600, letterSpacing: '0.05em', marginBottom: SPACING.md }}>
             TODAY'S MOVERS
+            <Tooltip text="Mid-cap and above (Market Cap $2B+). Ranked by daily price change %. Data from Finviz, refreshed every 5 min." />
           </div>
 
           {movers.loading && <LoadingSkeleton height="24px" count={5} />}

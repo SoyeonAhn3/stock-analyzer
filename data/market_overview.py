@@ -98,42 +98,46 @@ def get_top_movers() -> Optional[dict[str, Any]]:
     try:
         from finvizfinance.screener.overview import Overview
 
-        # 급등 Top 5
+        # 급등 Top 5 (시가총액 $2B 이상, Change 필터 없음)
         gainers_screen = Overview()
         gainers_screen.set_filter(filters_dict={
             "Market Cap.": "+Mid (over $2bln)",
-            "Change": "Up 5%",
         })
         gainers_screen.set_filter(signal="Top Gainers")
         gainers_df = gainers_screen.screener_view()
 
         gainers = []
         if gainers_df is not None and not gainers_df.empty:
+            gainers_df = gainers_df.sort_values("Change", ascending=False, na_position="last")
             for _, row in gainers_df.head(5).iterrows():
+                raw_change = row.get("Change")
+                pct = round(raw_change * 100, 2) if isinstance(raw_change, (int, float)) else raw_change
                 gainers.append({
                     "ticker": row.get("Ticker"),
                     "name": row.get("Company"),
-                    "change_pct": row.get("Change"),
+                    "change_pct": pct,
                     "price": row.get("Price"),
                     "volume": row.get("Volume"),
                 })
 
-        # 급락 Top 5
+        # 급락 Top 5 (시가총액 $2B 이상, Change 필터 없음)
         losers_screen = Overview()
         losers_screen.set_filter(filters_dict={
             "Market Cap.": "+Mid (over $2bln)",
-            "Change": "Down 5%",
         })
         losers_screen.set_filter(signal="Top Losers")
         losers_df = losers_screen.screener_view()
 
         losers = []
         if losers_df is not None and not losers_df.empty:
+            losers_df = losers_df.sort_values("Change", ascending=True, na_position="last")
             for _, row in losers_df.head(5).iterrows():
+                raw_change = row.get("Change")
+                pct = round(raw_change * 100, 2) if isinstance(raw_change, (int, float)) else raw_change
                 losers.append({
                     "ticker": row.get("Ticker"),
                     "name": row.get("Company"),
-                    "change_pct": row.get("Change"),
+                    "change_pct": pct,
                     "price": row.get("Price"),
                     "volume": row.get("Volume"),
                 })

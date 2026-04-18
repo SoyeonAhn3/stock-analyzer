@@ -69,14 +69,21 @@ export function usePost<T, B = unknown>(path: string) {
   return { data, loading, error, trigger };
 }
 
-/** 주기적 폴링 hook */
-export function usePolling<T>(path: string, intervalMs: number): UseApiResult<T> {
+/** 주기적 폴링 hook — listenEvent 지정 시 해당 이벤트 발생 때도 즉시 재조회 */
+export function usePolling<T>(path: string, intervalMs: number, listenEvent?: string): UseApiResult<T> {
   const result = useApi<T>(path);
 
   useEffect(() => {
     const id = setInterval(result.refetch, intervalMs);
     return () => clearInterval(id);
   }, [result.refetch, intervalMs]);
+
+  useEffect(() => {
+    if (!listenEvent) return;
+    const handler = () => result.refetch();
+    window.addEventListener(listenEvent, handler);
+    return () => window.removeEventListener(listenEvent, handler);
+  }, [listenEvent, result.refetch]);
 
   return result;
 }

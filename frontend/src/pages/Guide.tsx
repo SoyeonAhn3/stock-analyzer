@@ -3,12 +3,13 @@ import { useTheme, type ThemeColors } from '../theme/ThemeProvider';
 import { FONT_SIZES, SPACING, RADIUS } from '../theme/tokens';
 import { useApi } from '../hooks/useApi';
 import LoadingSkeleton from '../components/LoadingSkeleton';
-import Chart from '../components/Chart';
+import Chart, { type ChartMarker } from '../components/Chart';
 
 interface ChartExample {
   ticker: string;
   period: string;
   description: string;
+  markers?: ChartMarker[];
 }
 
 interface Topic {
@@ -210,7 +211,11 @@ function TopicItem({ topic, theme }: { topic: Topic; theme: ThemeColors }) {
                     {topic.chart_example.period}
                   </span>
                 </div>
-                <Chart ticker={topic.chart_example.ticker} />
+                <Chart
+                  ticker={topic.chart_example.ticker}
+                  markers={topic.chart_example.markers}
+                  initialPeriod={topic.chart_example.period}
+                />
                 <p
                   style={{
                     color: theme.warning,

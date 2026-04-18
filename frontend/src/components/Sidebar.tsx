@@ -22,7 +22,7 @@ export default function Sidebar() {
   const location = useLocation();
   const [alertTicker, setAlertTicker] = useState<string | null>(null);
 
-  const { data: watchlist } = usePolling<WatchlistResponse>('/watchlist', 60_000);
+  const { data: watchlist } = usePolling<WatchlistResponse>('/watchlist', 60_000, 'watchlist-changed');
   const { createAlert } = useAlerts();
 
   const isActive = (path: string) => {
@@ -98,7 +98,7 @@ export default function Sidebar() {
             marginBottom: SPACING.sm,
           }}
         >
-          REAL-TIME WATCHLIST
+          WATCHLIST
         </div>
         {watchlist?.quotes?.map((q) => (
           <div

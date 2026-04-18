@@ -36,9 +36,9 @@ export default function WatchlistButton({ ticker }: Props) {
     fetch(url, { method })
       .then((r) => {
         if (!r.ok) throw new Error();
+        window.dispatchEvent(new Event('watchlist-changed'));
       })
       .catch(() => {
-        // Rollback on failure
         setInWatchlist(!willAdd);
       })
       .finally(() => setLoading(false));

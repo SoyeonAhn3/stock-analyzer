@@ -32,12 +32,14 @@ async def analyze(ticker: str):
     fundamentals_data = get_fundamentals(ticker)
     technicals_data = get_technicals(ticker)
 
-    quick_look_data = {
-        "ticker": ticker,
-        "quote": quote_data,
-        "fundamentals": fundamentals_data,
-        "technicals": technicals_data,
-    }
+    # Agent들이 평탄(flat) 구조의 quick_look_data를 기대함 (key → value 직접 접근)
+    quick_look_data = {"ticker": ticker}
+    for source in (quote_data, fundamentals_data, technicals_data):
+        if source:
+            for k, v in source.items():
+                if k == "ticker" or v is None:
+                    continue
+                quick_look_data[k] = v
 
     # AI 분석 실행 (async)
     result = await run_analysis(quick_look_data)

@@ -5,13 +5,23 @@ import { FONT_SIZES, SPACING, RADIUS } from '../theme/tokens';
 import { API_BASE } from '../config';
 import type { HistoryRecord } from '../types/api';
 
-const PERIODS = ['1D', '1W', '1M', '3M', '6M', '1Y', '5Y'] as const;
+const PERIODS = ['1D', '1M', '3M', '6M', '1Y', '5Y'] as const;
+
+export interface ChartMarker {
+  time: string;
+  position: 'aboveBar' | 'belowBar' | 'inBar';
+  color: string;
+  shape: 'arrowUp' | 'arrowDown' | 'circle' | 'square';
+  text: string;
+}
 
 interface Props {
   ticker: string;
+  markers?: ChartMarker[];
+  initialPeriod?: string;
 }
 
-export default function Chart({ ticker }: Props) {
+export default function Chart({ ticker, markers, initialPeriod }: Props) {
   const { theme, mode } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -23,7 +33,7 @@ export default function Chart({ ticker }: Props) {
   const ma50Ref = useRef<ISeriesApi<any> | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ma200Ref = useRef<ISeriesApi<any> | null>(null);
-  const [period, setPeriod] = useState<string>('1Y');
+  const [period, setPeriod] = useState<string>(initialPeriod ?? '1Y');
   const [loading, setLoading] = useState(false);
 
   // Create chart on mount
@@ -147,6 +157,14 @@ export default function Chart({ ticker }: Props) {
 
         ma50Ref.current?.setData(ma50Data);
         ma200Ref.current?.setData(ma200Data);
+
+        if (markers?.length) {
+          const validDates = new Set(candles.map((c) => c.time));
+          const filtered = markers
+            .filter((m) => validDates.has(m.time))
+            .sort((a, b) => a.time.localeCompare(b.time));
+          if (filtered.length) candleRef.current?.setMarkers(filtered);
+        }
 
         chartRef.current?.timeScale().fitContent();
       })
