@@ -90,3 +90,39 @@ export interface AnalysisResult {
   summary: string;
   disclaimer?: string;
 }
+
+export interface AgentResult {
+  agent: string;
+  status: string;
+  summary?: string;
+  overall_sentiment?: string;
+  sentiment_score?: number;
+  analyst_consensus?: string;
+  earnings?: string;
+  technicals_summary?: { trend: string; signals?: string[] };
+  valuation?: { assessment: string; detail: string };
+  financial_health?: { rating: string; detail: string };
+  market_sentiment?: string;
+  rate_outlook?: string;
+  risk_factors?: string[];
+  sector_trend?: string;
+  [key: string]: unknown;
+}
+
+export interface CrossValidationResult {
+  agent: string;
+  status: string;
+  conflicts: { topic: string; detail: string; severity: string }[];
+  agreements: string[];
+  confidence_adjustment: string;
+  notes: string;
+}
+
+export interface FullAnalysisResponse {
+  ticker: string;
+  agent_results: Record<string, AgentResult>;
+  agent_status: Record<string, string>;
+  cross_validation: CrossValidationResult | null;
+  analyst: AnalysisResult | null;
+  errors: string[];
+}

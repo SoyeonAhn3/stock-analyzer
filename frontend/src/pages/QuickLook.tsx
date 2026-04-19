@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useTheme } from '../theme/ThemeProvider';
 import { FONT_SIZES, SPACING } from '../theme/tokens';
 import { useQuote } from '../hooks/useQuote';
@@ -7,7 +7,7 @@ import PriceHeader from '../components/PriceHeader';
 import KpiCard from '../components/KpiCard';
 import Chart from '../components/Chart';
 import TechCards from '../components/TechCard';
-import AiRecommendation from '../components/AiRecommendation';
+import AiAnalysisInline from '../components/AiAnalysisInline';
 import WatchlistButton from '../components/WatchlistButton';
 
 function formatMarketCap(v: number | null | undefined): string {
@@ -20,7 +20,6 @@ function formatMarketCap(v: number | null | undefined): string {
 
 export default function QuickLook() {
   const { ticker } = useParams<{ ticker: string }>();
-  const navigate = useNavigate();
   const { theme } = useTheme();
   const upperTicker = ticker?.toUpperCase();
   const { quote, fundamentals, technicals, loading, error } = useQuote(upperTicker);
@@ -87,14 +86,14 @@ export default function QuickLook() {
         <TechCards technicals={technicals} currentPrice={quote?.price} />
       </div>
 
-      {/* AI Recommendation */}
-      <AiRecommendation
+      {/* AI Analysis — inline (#4), with Agent details (#3) and re-analyze (#1) */}
+      <AiAnalysisInline
         result={analysis.result}
+        fullResponse={analysis.fullResponse}
         loading={analysis.loading}
-        onTrigger={() => {
-          analysis.trigger();
-          navigate(`/analysis/${upperTicker}`);
-        }}
+        error={analysis.error}
+        cachedAt={analysis.cachedAt}
+        onTrigger={(force) => analysis.trigger(force)}
       />
     </div>
   );

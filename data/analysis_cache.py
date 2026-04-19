@@ -20,13 +20,13 @@ logger = logging.getLogger(__name__)
 CACHE_TTL_HOURS = 24
 
 
-def get_cached_analysis(ticker: str) -> dict | None:
+def get_cached_analysis(ticker: str, include_meta: bool = False) -> dict | None:
     """캐시된 분석 결과 조회. 만료되었으면 None."""
     ticker = ticker.upper()
     conn = get_connection()
     try:
         row = conn.execute(
-            "SELECT result, expires_at FROM analysis_cache WHERE ticker = ?",
+            "SELECT result, created_at, expires_at FROM analysis_cache WHERE ticker = ?",
             (ticker,),
         ).fetchone()
         if not row:
@@ -40,7 +40,10 @@ def get_cached_analysis(ticker: str) -> dict | None:
             return None
 
         logger.info("Cache hit for %s", ticker)
-        return json.loads(row["result"])
+        result = json.loads(row["result"])
+        if include_meta:
+            result["cached_at"] = row["created_at"]
+        return result
     finally:
         conn.close()
 

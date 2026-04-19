@@ -12,17 +12,18 @@ router = APIRouter()
 
 
 @router.post("/analysis/{ticker}")
-async def analyze(ticker: str):
+async def analyze(ticker: str, force: bool = False):
     """AI Deep Analysis 실행 (1~2분 소요).
 
     Quick Look 데이터를 수집한 뒤 5-Agent 파이프라인에 전달한다.
     """
     ticker = ticker.upper()
 
-    # 캐시 확인 (24시간 TTL)
-    cached = get_cached_analysis(ticker)
-    if cached:
-        return cached
+    # 캐시 확인 (24시간 TTL) — force=True이면 캐시 무시
+    if not force:
+        cached = get_cached_analysis(ticker, include_meta=True)
+        if cached:
+            return cached
 
     # Quick Look 데이터 수집
     quote_data = get_quote(ticker)
@@ -48,3 +49,13 @@ async def analyze(ticker: str):
     save_analysis(ticker, result)
 
     return result
+
+
+@router.get("/analysis/{ticker}/cache")
+def get_cache(ticker: str):
+    """캐시된 분석 결과 조회 (AI 호출 없음)."""
+    ticker = ticker.upper()
+    cached = get_cached_analysis(ticker, include_meta=True)
+    if not cached:
+        raise HTTPException(404, "No cached analysis")
+    return cached
