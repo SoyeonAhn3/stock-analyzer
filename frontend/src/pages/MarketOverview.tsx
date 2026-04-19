@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../theme/ThemeProvider';
 import { FONT_SIZES, SPACING, RADIUS } from '../theme/tokens';
-import { useApi } from '../hooks/useApi';
+import { useApi, usePolling } from '../hooks/useApi';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import ErrorBanner from '../components/ErrorBanner';
@@ -32,7 +32,7 @@ export default function MarketOverview() {
   const navigate = useNavigate();
   const bp = useBreakpoint();
   const movers = useApi<MoversResponse>('/market/movers');
-  const news = useApi<NewsItem[]>('/market/news');
+  const news = usePolling<NewsItem[]>('/market/news', 300_000);
 
   const cardStyle: React.CSSProperties = {
     background: theme.bg_card,

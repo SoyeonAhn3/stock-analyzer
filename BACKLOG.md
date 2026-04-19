@@ -14,6 +14,9 @@
 | 6 | Sector Screening GICS→Finviz 매핑 누락 수정 | 중 | **완료** | — |
 | 7 | Guide 차트 패턴 마커 표시 (수동 지정) | 중 | **완료** | — |
 | 8 | Watchlist 해제 즉시 반영 (이벤트 기반 갱신) | 중 | **완료** | — |
+| 9 | Market News 자동 갱신 (usePolling 5분) | 중 | **완료** | — |
+| 10 | Agent Analysis 데이터 출처 표시 | 중 | 계획 | — |
+| 11 | Compare Analysis 판단 근거 + 데이터 출처 표시 | 중 | 계획 | — |
 
 ---
 
@@ -455,3 +458,67 @@ Watchlist에서 종목을 해제(★ 버튼 클릭)하면 백엔드에서는 삭
 - `usePolling` hook: `frontend/src/hooks/useApi.ts:73`
 - WatchlistButton: `frontend/src/components/WatchlistButton.tsx`
 - Sidebar watchlist: `frontend/src/components/Sidebar.tsx:25`
+
+---
+
+## 9. Market News 자동 갱신 (usePolling 5분)
+
+### 배경
+Market Overview의 뉴스가 페이지 최초 로드 시 1회만 fetch되어, 시간이 지나도 같은 뉴스가 표시됨.
+
+### 수정 내역 (완료)
+`MarketOverview.tsx`에서 `useApi` → `usePolling(300_000)` 변경. 5분마다 자동 갱신.
+
+---
+
+## 10. Agent Analysis 데이터 출처 표시
+
+### 배경
+Agent Analysis Details에서 각 Agent(News/Data/Macro)가 판단 근거로 사용한 데이터 소스가 표시되지 않아, 사용자가 분석의 신뢰성을 판단하기 어려움.
+
+### UI 스펙
+각 Agent 카드 하단에 소스 태그 표시:
+
+```
+📰 News Analysis          [Bullish]
+"애널리스트 매수 추천 우세, 실적 서프라이즈"
+Sources: Finnhub News · Analyst Recommendations
+
+📊 Financial / Technical  [Bullish]
+"PEG 0.77 저평가, MACD 강세 신호"
+Sources: Finnhub Fundamentals · yFinance Technicals
+
+🌐 Macro Economy          [Neutral]
+"금리 안정적, 다만 규제 불확실성 존재"
+Sources: FRED API (Fed Rate, CPI, Unemployment, GDP)
+```
+
+### 구현 범위
+- [ ] `frontend/src/components/AgentDetailSection.tsx` — 각 Agent 카드에 Sources 라인 추가 (정적 텍스트)
+
+### 예상 공수
+30분
+
+---
+
+## 11. Compare Analysis 판단 근거 + 데이터 출처 표시
+
+### 배경
+Compare Mode의 AI Compare Analysis 결과에 "왜 이런 결론인지"와 "어떤 데이터를 기반으로 분석했는지" 설명이 없어 사용자가 결과를 신뢰하기 어려움.
+
+### UI 스펙
+Compare 결과 하단에 분석 기반 정보 표시:
+
+```
+📋 Analysis Basis
+• 시세 데이터: Finnhub (실시간 시세)
+• 재무 지표: Finnhub (PER, EPS, PEG, D/E Ratio)
+• 기술 지표: yFinance (RSI, MACD, Bollinger, MA50/200)
+• AI 엔진: Claude (Anthropic) — 위 데이터 기반 비교 분석
+```
+
+### 구현 범위
+- [ ] `frontend/src/pages/CompareMode.tsx` — AI 결과 하단에 Analysis Basis 섹션 추가
+
+### 예상 공수
+30분
