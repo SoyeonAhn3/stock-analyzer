@@ -17,7 +17,7 @@
 | 9 | Market News 자동 갱신 (usePolling 5분) | 중 | **완료** | — |
 | 10 | Agent Analysis 데이터 출처 표시 | 중 | **완료** | — |
 | 11 | Compare Analysis 판단 근거 + 데이터 출처 표시 | 중 | **완료** | — |
-| 12 | Cross Sector 분석 품질 개선 (데이터 확충 + 프롬프트 고도화) | 상 | 진행중 | — |
+| 12 | Cross Sector 분석 품질 개선 (데이터 확충 + 프롬프트 고도화) | 상 | **완료** | — |
 | 13 | Compare 테이블 Fundamentals 누락 수정 (yfinance 부분 응답 + FMP 병합) | 긴급 | **완료** | — |
 
 ---

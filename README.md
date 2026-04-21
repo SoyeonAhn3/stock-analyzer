@@ -265,7 +265,7 @@ stock-analyzer/
 - **3단계 필터**: 공통 필터 + 유형별 프리셋 4종 + 적응형 완화 (빈 결과 방지)
 - **비교 유형 자동 감지**: same_sector / cross_sector를 판정하여 분석 방식 분기
 - **AI 환각 방지**: 숫자는 API에서만. AI는 해석만 담당
-- **API 폴백 체인**: 1순위 실패 시 자동으로 대체 소스 시도
+- **API 폴백 + 병합**: 1순위 실패 시 대체 소스 시도 + 부분 응답 시 보완 데이터 병합
 - **SQLite 영속화**: Watchlist + Themes + AI 캐시를 SQLite로 관리 (WAL 모드)
 - **CORS 동적 설정**: 환경변수(`CORS_ORIGINS`)로 배포 도메인 유연하게 추가
 - **법적 면책**: 모든 AI 분석 결과에 면책 조항 표시
@@ -318,3 +318,11 @@ stock-analyzer/
 | 2026-04-19 | Compare 크래시 수정 — 프롬프트 중첩객체→문자열 + safeRender 방어 렌더링. |
 | 2026-04-19 | Guide 차트 마커 — Lightweight Charts setMarkers() 활용, 4개 패턴에 실데이터 마커 추가. |
 | 2026-04-19 | 차트 기간 수정 — 1D 매핑 추가(5분봉), 1W 제거(1D와 중복). |
+| 2026-04-20 | lightweight-charts v5 호환 수정 — `setMarkers()` → `createSeriesMarkers()` 마이그레이션. |
+| 2026-04-20 | Market News 수동 새로고침 버튼 추가. |
+| 2026-04-20 | Agent Analysis 데이터 출처 표시 — News/Data/Macro 각 Agent 카드에 Sources 태그 추가. |
+| 2026-04-20 | Compare Analysis 판단 근거 + 데이터 출처 표시 — AI 결과 하단 Analysis Basis 섹션. |
+| 2026-04-20 | Cross Sector 분석 품질 개선 — Fundamentals 7개 지표 추가, 섹터PE/매크로 주입, 시나리오 5개 확장. |
+| 2026-04-20 | Compare AI 분석 JSON 파싱 실패 수정 — max_tokens 2048→4096 확장. |
+| 2026-04-21 | Fundamentals 부분 응답 병합 — yfinance 누락 필드를 FMP key-metrics-ttm으로 보완. |
+| 2026-04-21 | BACKLOG #1~#13 전체 완료. |
