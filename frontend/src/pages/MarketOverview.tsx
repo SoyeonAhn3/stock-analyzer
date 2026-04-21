@@ -146,8 +146,27 @@ export default function MarketOverview() {
 
         {/* News */}
         <div style={cardStyle}>
-          <div style={{ color: theme.text_muted, fontSize: FONT_SIZES.xs, fontWeight: 600, letterSpacing: '0.05em', marginBottom: SPACING.md }}>
-            MARKET NEWS
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.md }}>
+            <span style={{ color: theme.text_muted, fontSize: FONT_SIZES.xs, fontWeight: 600, letterSpacing: '0.05em' }}>
+              MARKET NEWS
+            </span>
+            <button
+              onClick={news.refetch}
+              disabled={news.loading}
+              style={{
+                background: 'transparent',
+                border: `1px solid ${theme.border}`,
+                borderRadius: RADIUS.button,
+                color: theme.text_muted,
+                fontSize: FONT_SIZES.xs,
+                padding: `2px ${SPACING.sm}`,
+                cursor: news.loading ? 'not-allowed' : 'pointer',
+                opacity: news.loading ? 0.5 : 1,
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {news.loading ? '...' : '↻ Refresh'}
+            </button>
           </div>
 
           {news.loading && <LoadingSkeleton height="60px" count={4} />}

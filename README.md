@@ -1,6 +1,14 @@
 # AI Stock Analyzer
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-QuantAI-blue?style=for-the-badge&logo=netlify)](https://stock-analyzer-ai.netlify.app/)
+
 > Multi-Agent 미국 주식 종합 분석 시스템
+
+### 왜 만들었나
+
+주식 분석 정보가 여러 플랫폼에 분산되어 있고, 초보자는 해석 자체가 어렵다는 문제에서 출발했습니다. 5개 AI 에이전트가 뉴스·재무·거시경제를 병렬로 수집하고 교차 검증하여 매수/보유/매도 의견을 제시합니다.
+
+---
 
 미국 주식 티커를 입력하면 실시간 시세, 차트, 재무 지표를 즉시 보여주고, AI Agent 5명이 뉴스, 데이터, 매크로를 병렬 수집하여 교차 검증 후 매수/중립/매도 의견을 제시하는 시스템.
 

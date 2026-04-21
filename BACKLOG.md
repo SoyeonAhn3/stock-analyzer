@@ -17,6 +17,7 @@
 | 9 | Market News 자동 갱신 (usePolling 5분) | 중 | **완료** | — |
 | 10 | Agent Analysis 데이터 출처 표시 | 중 | 계획 | — |
 | 11 | Compare Analysis 판단 근거 + 데이터 출처 표시 | 중 | 계획 | — |
+| 12 | Cross Sector 분석 품질 개선 (데이터 확충 + 프롬프트 고도화) | 상 | 계획 | — |
 
 ---
 
@@ -522,3 +523,135 @@ Compare 결과 하단에 분석 기반 정보 표시:
 
 ### 예상 공수
 30분
+
+---
+
+## 12. Cross Sector 분석 품질 개선 (데이터 확충 + 프롬프트 고도화)
+
+### 배경
+Cross Sector 비교 분석 결과가 부실함. 근본 원인은 세 가지:
+1. **데이터 부족**: 프롬프트가 "FCF Yield, ROE 요약해줘", "섹터 평균 PER 대비 평가해줘"라고 요구하지만, 실제로 해당 데이터를 Claude에게 전달하지 않아 추측으로 채움
+2. **매크로 시나리오 빈약**: `rate_hold`/`recession` 2개뿐. 인플레이션, 섹터 로테이션 등 크로스 섹터에서 중요한 시나리오 누락
+3. **기술 지표 미활용**: RSI/MACD/Bollinger/MA 데이터를 수집하지만 프롬프트에서 명시적으로 활용하지 않음
+
+### Step 1 — Fundamentals 지표 추가 수집 (`data/fundamentals.py`)
+
+현재 10개 지표만 수집. yfinance에서 추가 가능한 핵심 지표:
+
+| 추가 지표 | yfinance 필드 | 용도 |
+|-----------|--------------|------|
+| ROE | `returnOnEquity` | 수익성 비교 (섹터 중립 지표) |
+| ROA | `returnOnAssets` | 자산 효율성 |
+| Net Profit Margin | `profitMargins` | 이익률 비교 |
+| Operating Margin | `operatingMargins` | 영업 효율성 |
+| Free Cash Flow | `freeCashflow` | 현금 창출력 |
+| Beta | `beta` | 변동성/리스크 비교 |
+| Current Ratio | `currentRatio` | 유동성 건전성 |
+
+**구현 범위**:
+- [ ] `data/fundamentals.py` — 위 7개 지표 추가 수집
+- [ ] `data/yfinance_client.py` — 해당 필드 파싱 추가 (일부는 이미 접근 가능)
+
+### Step 2 — 프롬프트 고도화 + 실제 데이터 주입 (`agents/compare_agent.py`)
+
+#### 2-A. 섹터 평균 PE 데이터 주입
+
+현재 `data/api_client.py`에 `get_sector_pe()` 함수가 존재하지만 compare 흐름에서 호출하지 않음.
+
+**변경**: `_build_cross_sector_prompt`에서 섹터 PE 데이터를 조회하여 프롬프트에 포함
+```
+"참고 데이터: Technology 섹터 평균 PE = 28.5, Healthcare 섹터 평균 PE = 22.1"
+```
+
+#### 2-B. 매크로 경제 데이터 주입
+
+`data/api_client.py`에 `get_macro()` 함수가 존재하지만 compare에서 미사용. FRED API로 Fed Rate, CPI, GDP, 실업률 조회 가능.
+
+**변경**: 매크로 데이터를 프롬프트에 실제 수치로 포함
+```
+"현재 경제 지표: Fed Rate 5.25%, CPI 3.2%, GDP Growth 2.1%, Unemployment 3.8%"
+```
+
+#### 2-C. 매크로 시나리오 확장
+
+**Before** (2개):
+```json
+"macro_scenarios": {
+    "rate_hold": "...",
+    "recession": "..."
+}
+```
+
+**After** (5개):
+```json
+"macro_scenarios": {
+    "rate_cut": "금리 인하 시 유리한 종목과 이유",
+    "rate_hold": "금리 동결 시 유리한 종목과 이유",
+    "recession": "경기 침체 시 방어적인 종목과 이유",
+    "inflation_spike": "인플레이션 급등 시 유리한 종목과 이유",
+    "sector_rotation": "섹터 로테이션 발생 시 수혜 종목과 이유"
+}
+```
+
+#### 2-D. 기술 지표 명시적 활용
+
+프롬프트에 기술 지표 해석 가이드 추가:
+```
+"기술 지표를 비교에 활용해:
+- RSI 30 이하 과매도 / 70 이상 과매수
+- MACD 히스토그램 양전환/음전환 추세
+- MA50/MA200 대비 가격 위치로 중장기 추세 판단"
+```
+
+**구현 범위**:
+- [ ] `data/compare.py` — `get_comparison_data()`에서 섹터 PE + 매크로 데이터 추가 수집
+- [ ] `agents/compare_agent.py` — `_build_cross_sector_prompt` 전면 개편
+  - 섹터 PE 벤치마크 주입
+  - 매크로 실제 수치 주입
+  - 시나리오 5개로 확장
+  - 기술 지표 활용 가이드 추가
+
+### Step 3 — 프론트엔드 비교 테이블 보강 (`frontend/src/pages/CompareMode.tsx`)
+
+현재 비교 테이블에 7개 지표만 표시:
+```
+price, change_percent, pe, forward_pe, eps, market_cap, dividend_yield
+```
+
+**추가 표시 지표**:
+
+| 지표 | 카테고리 |
+|------|---------|
+| `de_ratio` | 재무 건전성 |
+| `profit_margin` | 수익성 |
+| `roe` | 수익성 |
+| `beta` | 리스크 |
+| `rsi` | 기술 지표 |
+| `week52_high` / `week52_low` | 가격 범위 |
+
+**구현 범위**:
+- [ ] `frontend/src/pages/CompareMode.tsx` — 비교 테이블 지표 확장
+- [ ] `frontend/src/pages/CompareMode.tsx` — AI 결과 렌더링에 확장된 매크로 시나리오 표시
+
+### 의존 관계
+- Step 1 완료 → Step 2 진행 (프롬프트가 새 지표를 참조)
+- Step 2 완료 → Step 3 진행 (프론트가 새 응답 구조를 렌더링)
+- 백로그 #11 (데이터 출처 표시)과 함께 구현 시 시너지
+
+### 예상 공수
+
+| Step | 작업 | 시간 |
+|------|------|------|
+| 1 | Fundamentals 지표 추가 수집 | 1h |
+| 2 | 프롬프트 고도화 + 데이터 주입 | 2h |
+| 3 | 프론트엔드 테이블/렌더링 보강 | 1.5h |
+| 테스트 | 크로스 섹터 3~4쌍 비교 확인 | 30m |
+| **합계** | | **5시간** |
+
+### 참고
+- Compare Agent 프롬프트: `agents/compare_agent.py:130` (`_build_cross_sector_prompt`)
+- Fundamentals 수집: `data/fundamentals.py:17`
+- yfinance 추가 필드: `data/yfinance_client.py:64~96`
+- 섹터 PE 조회: `data/api_client.py` (`get_sector_pe`)
+- 매크로 조회: `data/api_client.py` (`get_macro`)
+- 프론트엔드 테이블: `frontend/src/pages/CompareMode.tsx:202`
