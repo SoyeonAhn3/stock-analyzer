@@ -71,6 +71,7 @@ export default function AgentDetailSection({ data }: Props) {
         <p style={{ color: theme.text_secondary, fontSize: FONT_SIZES.sm, lineHeight: 1.6, margin: 0 }}>
           {news?.summary ?? 'No data available'}
         </p>
+        <SourceTag sources="Finnhub News · Analyst Recommendations" />
       </div>
 
       {/* Data Agent */}
@@ -88,6 +89,7 @@ export default function AgentDetailSection({ data }: Props) {
         <p style={{ color: theme.text_secondary, fontSize: FONT_SIZES.sm, lineHeight: 1.6, margin: 0 }}>
           {dataAgent?.summary ?? 'No data available'}
         </p>
+        <SourceTag sources="Finnhub Fundamentals · yFinance Technicals (RSI, MACD, Bollinger, MA)" />
       </div>
 
       {/* Macro Agent */}
@@ -105,6 +107,7 @@ export default function AgentDetailSection({ data }: Props) {
         <p style={{ color: theme.text_secondary, fontSize: FONT_SIZES.sm, lineHeight: 1.6, margin: 0 }}>
           {macro?.summary ?? 'No data available'}
         </p>
+        <SourceTag sources="FRED API (Fed Rate, CPI, Unemployment, GDP)" />
       </div>
 
       {/* Cross Validation */}
@@ -166,6 +169,15 @@ export default function AgentDetailSection({ data }: Props) {
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+function SourceTag({ sources }: { sources: string }) {
+  const { theme } = useTheme();
+  return (
+    <div style={{ marginTop: SPACING.sm, color: theme.text_muted, fontSize: FONT_SIZES.xs, opacity: 0.7 }}>
+      Sources: {sources}
     </div>
   );
 }

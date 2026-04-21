@@ -93,6 +93,14 @@ class YFinanceClient:
                 "employees": info.get("fullTimeEmployees"),
                 "city": info.get("city"),
                 "country": info.get("country"),
+                "roe": info.get("returnOnEquity"),
+                "roa": info.get("returnOnAssets"),
+                "profit_margin": info.get("profitMargins"),
+                "operating_margin": info.get("operatingMargins"),
+                "free_cash_flow": info.get("freeCashflow"),
+                "beta": info.get("beta"),
+                "current_ratio": info.get("currentRatio"),
+                "revenue": info.get("totalRevenue"),
             }
         except Exception as e:
             logger.warning("yfinance get_fundamentals failed for %s: %s", ticker, e)

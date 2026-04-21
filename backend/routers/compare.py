@@ -43,5 +43,7 @@ def compare_analyze(req: CompareRequest):
         tickers=tickers,
         comparison_type=comparison_type,
         ticker_data=comparison_data.get("data", {}),
+        sector_pe=comparison_data.get("sector_pe"),
+        macro=comparison_data.get("macro"),
     )
     return result

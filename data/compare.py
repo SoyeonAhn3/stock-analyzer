@@ -14,6 +14,7 @@ from typing import Any, Optional
 from data.fundamentals import get_fundamentals
 from data.quote import get_quote
 from data.technicals import get_technicals
+from data.api_client import api_client
 
 logger = logging.getLogger(__name__)
 
@@ -113,8 +114,28 @@ def get_comparison_data(tickers: list[str]) -> dict[str, Any]:
             "technicals": get_technicals(ticker),
         }
 
-    return {
+    # Cross sector일 때 섹터 PE + 매크로 데이터 추가
+    sector_pe = {}
+    macro = None
+    if comparison_type == "cross_sector":
+        seen_sectors: set[str] = set()
+        for ticker in tickers:
+            sector = (data[ticker].get("fundamentals") or {}).get("sector")
+            if sector and sector not in seen_sectors:
+                seen_sectors.add(sector)
+                pe_data = api_client.get_sector_pe(sector)
+                if pe_data:
+                    sector_pe[sector] = pe_data
+        macro = api_client.get_macro()
+
+    result: dict[str, Any] = {
         "tickers": tickers,
         "comparison_type": comparison_type,
         "data": data,
     }
+    if sector_pe:
+        result["sector_pe"] = sector_pe
+    if macro:
+        result["macro"] = macro
+
+    return result

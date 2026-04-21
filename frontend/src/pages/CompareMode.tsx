@@ -199,7 +199,7 @@ export default function CompareMode() {
               </tr>
             </thead>
             <tbody>
-              {['price', 'change_percent', 'pe', 'forward_pe', 'eps', 'market_cap', 'dividend_yield'].map((field) => (
+              {['price', 'change_percent', 'pe', 'forward_pe', 'eps', 'peg', 'market_cap', 'dividend_yield', 'de_ratio', 'roe', 'profit_margin', 'beta'].map((field) => (
                 <tr key={field}>
                   <td style={{ padding: SPACING.sm, color: theme.text_secondary, fontSize: FONT_SIZES.xs, textTransform: 'uppercase', borderBottom: `1px solid ${theme.border}` }}>
                     {field.replace(/_/g, ' ')}
@@ -312,6 +312,23 @@ export default function CompareMode() {
             </div>
           )}
 
+          {/* Technical Comparison (cross_sector) */}
+          {aiResult.analysis?.technical_comparison && (
+            <div style={{ marginBottom: SPACING.lg }}>
+              <div style={{ color: theme.accent, fontSize: FONT_SIZES.xs, fontWeight: 600, letterSpacing: '0.05em', marginBottom: SPACING.sm }}>
+                TECHNICAL COMPARISON
+              </div>
+              {Object.entries(aiResult.analysis.technical_comparison as Record<string, any>).map(([ticker, analysis]) => (
+                <div key={ticker} style={{ padding: `${SPACING.sm} 0`, borderBottom: `1px solid ${theme.border}` }}>
+                  <span style={{ color: theme.accent, fontSize: FONT_SIZES.sm, fontWeight: 700, fontFamily: FONTS.numeric }}>{ticker}</span>
+                  <p style={{ color: theme.text_secondary, fontSize: FONT_SIZES.sm, marginTop: SPACING.xs, lineHeight: 1.5 }}>
+                    {safeRender(analysis)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Key Risks */}
           {aiResult.analysis?.key_risks && (
             <div style={{ marginBottom: SPACING.lg }}>
@@ -360,7 +377,31 @@ export default function CompareMode() {
             </pre>
           )}
 
-          <p style={{ color: theme.text_muted, fontSize: FONT_SIZES.xs, marginTop: SPACING.lg, textAlign: 'center' }}>
+          {/* Analysis Basis */}
+          <div style={{
+            marginTop: SPACING.lg,
+            padding: SPACING.md,
+            background: `${theme.text_muted}08`,
+            borderRadius: RADIUS.card,
+            border: `1px solid ${theme.border}`,
+          }}>
+            <div style={{ color: theme.text_muted, fontSize: FONT_SIZES.xs, fontWeight: 600, letterSpacing: '0.05em', marginBottom: SPACING.sm }}>
+              ANALYSIS BASIS
+            </div>
+            {[
+              { label: 'Quote Data', value: 'Finnhub (real-time quotes)' },
+              { label: 'Fundamentals', value: 'Finnhub · yFinance · FMP (PER, EPS, PEG, D/E Ratio)' },
+              { label: 'Technicals', value: 'Twelve Data · yFinance (RSI, MACD, Bollinger, MA50/200)' },
+              { label: 'AI Engine', value: 'Claude (Anthropic) — cross-validated comparison analysis' },
+            ].map(({ label, value }) => (
+              <div key={label} style={{ display: 'flex', gap: SPACING.sm, padding: `3px 0`, fontSize: FONT_SIZES.xs }}>
+                <span style={{ color: theme.text_muted, minWidth: 90 }}>{label}</span>
+                <span style={{ color: theme.text_secondary }}>{value}</span>
+              </div>
+            ))}
+          </div>
+
+          <p style={{ color: theme.text_muted, fontSize: FONT_SIZES.xs, marginTop: SPACING.md, textAlign: 'center' }}>
             AI-generated reference only. Not financial advice. Do your own research before making investment decisions.
           </p>
         </div>
