@@ -169,7 +169,7 @@ export default function MarketOverview() {
             </button>
           </div>
 
-          {news.loading && <LoadingSkeleton height="60px" count={4} />}
+          {news.loading && !news.data && <LoadingSkeleton height="60px" count={4} />}
 
           {news.data?.map((n, i) => (
             <a
