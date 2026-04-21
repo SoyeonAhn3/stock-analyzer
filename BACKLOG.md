@@ -18,6 +18,7 @@
 | 10 | Agent Analysis 데이터 출처 표시 | 중 | **완료** | — |
 | 11 | Compare Analysis 판단 근거 + 데이터 출처 표시 | 중 | **완료** | — |
 | 12 | Cross Sector 분석 품질 개선 (데이터 확충 + 프롬프트 고도화) | 상 | 진행중 | — |
+| 13 | Compare 테이블 Fundamentals 누락 수정 (yfinance 부분 응답 + FMP 병합) | 긴급 | **완료** | — |
 
 ---
 
@@ -655,3 +656,165 @@ price, change_percent, pe, forward_pe, eps, market_cap, dividend_yield
 - 섹터 PE 조회: `data/api_client.py` (`get_sector_pe`)
 - 매크로 조회: `data/api_client.py` (`get_macro`)
 - 프론트엔드 테이블: `frontend/src/pages/CompareMode.tsx:202`
+
+---
+
+## 13. Compare 테이블 Fundamentals 누락 수정 (yfinance 부분 응답 + FMP 병합)
+
+### 현상
+Compare Mode 비교 테이블에서 **AAPL** 등 일부 티커의 fundamentals 필드가 `--`로 표시됨.
+
+```
+              AAPL         JNJ
+price         273.05       230.69      ✓
+pe            34.55        20.91       ✓
+forward_pe    --           18.17       ✗ AAPL만 누락
+eps           --           11.03       ✗
+peg           --           3.05        ✗
+dividend_yield --          2.32        ✗
+de_ratio      --           60.5        ✗
+roe           --           --          ✗ 양쪽 누락
+profit_margin --           0.22        ✗
+beta          --           0.33        ✗
+```
+
+### 원인 분석
+
+#### 1단계: 프론트엔드 vs 백엔드 문제 식별
+
+프론트엔드 데이터 접근 경로 (`CompareMode.tsx:208-211`):
+```typescript
+const d = compareData.data?.data?.[t] ?? compareData.data?.[t];
+const q = d?.quote ?? d;
+const f = d?.fundamentals ?? d;
+let val = q?.[field] ?? f?.[field] ?? '--';
+```
+
+`??` 연산자는 `null`/`undefined`만 통과시키므로, `f?.forward_pe`가 `null`이면 `null ?? '--'` = `'--'`로 정상 동작. 즉 **프론트엔드 코드는 정상**, 백엔드가 `null`을 보내는 것이 원인.
+
+#### 2단계: 백엔드 데이터 흐름 추적
+
+```
+CompareMode.tsx
+  → POST /api/compare
+    → get_comparison_data()
+      → get_fundamentals(ticker)           ← data/fundamentals.py
+        → api_client.get_fundamentals()    ← data/api_client.py
+          → _try_fallback("fundamentals")  ← 여기가 문제
+            → yfinance.get_fundamentals()  ← 1순위
+            → fmp.get_fundamentals()       ← 2순위 (호출 안 됨!)
+```
+
+#### 3단계: 근본 원인 — `_try_fallback`의 "전부 아니면 전무" 로직
+
+`api_client._try_fallback()` 동작:
+```python
+for source_name in sources:           # ["yfinance", "fmp", "finviz"]
+    result = method(**kwargs)
+    if result is not None:            # ← dict를 반환하면 "성공"으로 간주
+        cache.set(...)
+        return result                 # ← 즉시 반환, 다음 소스 시도 안 함
+```
+
+**yfinance가 AAPL에 대해 반환한 실제 데이터**:
+```python
+{
+    "pe_ratio": 34.55,         # ✓ trailingPE 존재
+    "forward_pe": None,        # ✗ forwardPE 없음
+    "eps": None,               # ✗ trailingEps 없음
+    "peg_ratio": None,         # ✗ pegRatio 없음
+    "dividend_yield": None,    # ✗
+    "debt_to_equity": None,    # ✗
+    "roe": None,               # ✗
+    "profit_margin": None,     # ✗
+    "beta": None,              # ✗
+    "sector": "Technology",    # ✓
+    ...
+}
+```
+
+yfinance `stock.info`는 내부적으로 Yahoo Finance의 **여러 API 엔드포인트**를 합산:
+- 엔드포인트 A (시세/PE) → 성공 → `trailingPE = 34.55`
+- 엔드포인트 B (재무비율) → 실패/타임아웃 → `trailingEps`, `forwardPE`, `pegRatio` 등 전부 `None`
+
+Render 서버 환경에서 Yahoo의 일부 엔드포인트가 불안정 (rate limiting 또는 IP 기반 제한 추정).
+
+**결과**: yfinance가 `None`이 아닌 dict를 반환 → `_try_fallback`이 "성공"으로 판단 → FMP 폴백 호출 안 함 → 8개 필드 `null`로 프론트엔드에 전달 → `--` 표시.
+
+JNJ는 yfinance가 대부분의 필드를 정상 반환하므로 문제 없음. **티커별 yfinance 응답 완성도가 다른 것**이 근본 원인.
+
+### 해결 방안
+
+#### `data/api_client.py` — `get_fundamentals()` 병합 로직 도입
+
+**Before** (전부 아니면 전무):
+```python
+def get_fundamentals(self, ticker):
+    return self._try_fallback("fundamentals", "get_fundamentals", ticker=ticker)
+```
+
+**After** (yfinance 우선 + FMP 보완 병합):
+```python
+def get_fundamentals(self, ticker):
+    # 1) yfinance 시도
+    result = self.yfinance.get_fundamentals(ticker=ticker)
+
+    # 2) 완전 실패 시 FMP로 대체
+    if result is None:
+        result = self.fmp.get_fundamentals(ticker=ticker)
+
+    # 3) 핵심 8개 필드 중 3개 이상 누락이면 FMP key-metrics-ttm으로 보완
+    missing = sum(1 for f in key_fields if result.get(f) is None)
+    if missing >= 3:
+        metrics = self.fmp.get_key_metrics_ttm(ticker=ticker)
+        for key, val in metrics.items():
+            if result.get(key) is None and val is not None:
+                result[key] = val  # None 필드만 FMP 값으로 채움
+
+    cache.set("fundamentals", ticker, result, ttl)
+    return result
+```
+
+#### `data/fmp_client.py` — FMP 보완 데이터 소스 추가
+
+1. **기존 `get_fundamentals()`에 `beta` 추출 추가**: FMP `/profile` 응답에 beta가 있지만 추출하지 않고 있었음
+2. **새 메서드 `get_key_metrics_ttm()` 추가**: FMP `/key-metrics-ttm/{ticker}` 엔드포인트 활용
+
+```python
+def get_key_metrics_ttm(self, ticker):
+    # pegRatioTTM, debtToEquityTTM, roeTTM, netProfitMarginTTM,
+    # netIncomePerShareTTM, dividendYieldTTM 등 반환
+```
+
+### 수정 후 예상 데이터 흐름
+
+| 필드 | yfinance (AAPL) | FMP 보완 | 최종 |
+|------|-----------------|----------|------|
+| pe | 34.55 | — | 34.55 |
+| forward_pe | None | (TTM에 없음) | `--` 유지 |
+| eps | None | netIncomePerShareTTM | **값 표시** |
+| peg | None | pegRatioTTM | **값 표시** |
+| dividend_yield | None | dividendYieldTTM | **값 표시** |
+| de_ratio | None | debtToEquityTTM | **값 표시** |
+| roe | None | roeTTM | **값 표시** |
+| profit_margin | None | netProfitMarginTTM | **값 표시** |
+| beta | None | profile beta | **값 표시** |
+
+`forward_pe`는 FMP TTM에도 없으므로 `--` 유지 가능 (forward PE는 애널리스트 추정치 기반, 별도 소스 필요).
+
+### 수정 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `data/api_client.py` | `get_fundamentals()` — `_try_fallback` 대신 yfinance+FMP 병합 로직 |
+| `data/fmp_client.py` | `get_fundamentals()` beta 추가 + `get_key_metrics_ttm()` 신규 |
+
+### FMP API 호출 비용
+- 보완 호출은 yfinance 필드 3개 이상 누락 시에만 발생
+- 1회 compare 요청당 최대 2~3회 FMP 추가 호출 (무료 250/일 대비 미미)
+
+### 참고
+- `_try_fallback` 로직: `data/api_client.py:50-80`
+- yfinance `stock.info`: `data/yfinance_client.py:64-107`
+- FMP profile: `data/fmp_client.py:43-63`
+- 프론트엔드 데이터 접근: `frontend/src/pages/CompareMode.tsx:208-211`

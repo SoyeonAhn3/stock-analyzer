@@ -52,6 +52,7 @@ class FMPClient:
             "market_cap": p.get("mktCap"),
             "pe_ratio": p.get("pe"),
             "eps": p.get("eps"),
+            "beta": p.get("beta"),
             "sector": p.get("sector"),
             "industry": p.get("industry"),
             "dividend_yield": p.get("lastDiv"),
@@ -105,6 +106,25 @@ class FMPClient:
             "sector": sector,
             "median_pe": round(median_pe, 2),
             "sample_size": len(pe_values),
+        }
+
+    def get_key_metrics_ttm(self, ticker: str) -> Optional[dict[str, Any]]:
+        """TTM 핵심 재무 비율 조회 (yfinance 보완용)."""
+        data = self._get(f"key-metrics-ttm/{ticker}")
+        if not data or not isinstance(data, list) or len(data) == 0:
+            return None
+        m = data[0]
+        return {
+            "source": "fmp",
+            "ticker": ticker,
+            "peg_ratio": m.get("pegRatioTTM"),
+            "debt_to_equity": m.get("debtToEquityTTM"),
+            "roe": m.get("roeTTM"),
+            "profit_margin": m.get("netProfitMarginTTM"),
+            "eps": m.get("netIncomePerShareTTM"),
+            "dividend_yield": m.get("dividendYieldTTM"),
+            "free_cash_flow": m.get("freeCashFlowPerShareTTM"),
+            "pe_ratio": m.get("peRatioTTM"),
         }
 
     def get_income_statement(self, ticker: str, period: str = "annual", limit: int = 4) -> Optional[dict[str, Any]]:
