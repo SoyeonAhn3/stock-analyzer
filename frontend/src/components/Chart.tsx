@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createChart, type IChartApi, type ISeriesApi, CandlestickSeries, HistogramSeries, LineSeries, ColorType } from 'lightweight-charts';
+import { createChart, createSeriesMarkers, type IChartApi, type ISeriesApi, type ISeriesMarkersPluginApi, CandlestickSeries, HistogramSeries, LineSeries, ColorType } from 'lightweight-charts';
 import { useTheme } from '../theme/ThemeProvider';
 import { FONT_SIZES, SPACING, RADIUS } from '../theme/tokens';
 import { API_BASE } from '../config';
@@ -33,6 +33,8 @@ export default function Chart({ ticker, markers, initialPeriod }: Props) {
   const ma50Ref = useRef<ISeriesApi<any> | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ma200Ref = useRef<ISeriesApi<any> | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const markersRef = useRef<ISeriesMarkersPluginApi<any> | null>(null);
   const [period, setPeriod] = useState<string>(initialPeriod ?? '1Y');
   const [loading, setLoading] = useState(false);
 
@@ -158,12 +160,18 @@ export default function Chart({ ticker, markers, initialPeriod }: Props) {
         ma50Ref.current?.setData(ma50Data);
         ma200Ref.current?.setData(ma200Data);
 
-        if (markers?.length) {
+        if (markers?.length && candleRef.current) {
           const validDates = new Set(candles.map((c) => c.time));
           const filtered = markers
             .filter((m) => validDates.has(m.time))
             .sort((a, b) => a.time.localeCompare(b.time));
-          if (filtered.length) candleRef.current?.setMarkers(filtered);
+          if (filtered.length) {
+            if (markersRef.current) {
+              markersRef.current.setMarkers(filtered);
+            } else {
+              markersRef.current = createSeriesMarkers(candleRef.current, filtered);
+            }
+          }
         }
 
         chartRef.current?.timeScale().fitContent();
