@@ -16,9 +16,9 @@ from data.cache import cache
 logger = logging.getLogger(__name__)
 
 # 캐시 TTL (초)
-_INDICES_TTL = 60     # 1분
-_MOVERS_TTL = 300     # 5분
-_NEWS_TTL = 300       # 5분
+_INDICES_TTL = 300    # 5분
+_MOVERS_TTL = 900     # 15분 — finviz 스크래핑이 느리므로 길게
+_NEWS_TTL = 600       # 10분
 
 # 지수 매핑 (표시명 → yfinance 심볼)
 INDEX_MAP = {
