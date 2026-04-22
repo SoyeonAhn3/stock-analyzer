@@ -217,7 +217,8 @@ stock-analyzer/
 │   ├── Phase7_React_셋업_디자인_레이아웃.md         # ✅ 완료
 │   ├── Phase8_QuickLook_AI분석_화면.md             # ✅ 완료
 │   ├── Phase9_나머지화면_최종통합.md                # ✅ 완료
-│   └── Phase10_UX개선_데이터영속화.md              # ✅ 완료
+│   ├── Phase10_UX개선_데이터영속화.md              # ✅ 완료
+│   └── Phase11_UI_UX개선_모바일최적화.md           # 🔲 미시작
 │
 └── pre-requirement/                # 기획 문서
     ├── draft.txt                   # 기능 기술서
@@ -255,6 +256,12 @@ stock-analyzer/
 |:-----:|------|:----:|-----------|
 | 10 | UX 개선 + 데이터 영속화 | ✅ | 검색 자동완성 + Watchlist UI + SQLite + 가격 알림 + 반응형 |
 
+### UI/UX 개선 + 모바일 최적화 (Phase 11)
+
+| Phase | 이름 | 상태 | 핵심 산출물 |
+|:-----:|------|:----:|-----------|
+| 11 | UI/UX 개선 + 모바일 최적화 | 🔲 | 모바일 반응형 + 바텀 네비 + 터치 UX + 스켈레톤 UI + UI 통일 |
+
 ---
 
 ## 설계 특징
@@ -280,7 +287,7 @@ stock-analyzer/
 | **디자인 스펙 (권위 문서)** | `pre-requirement/design-spec.md` | 컬러 토큰, 레이아웃 구조, 테마, Settings |
 | 데이터 흐름 정리 | `pre-requirement/data_flow.txt` | 사용자 입력 → Quick Look → Deep Analysis 전체 흐름 |
 | UI 레퍼런스 | `pre-requirement/Stock Analyzer UI.png` | UI 디자인 참고 이미지 |
-| Phase 문서 | `Phase/Phase*.md` | Phase별 개발 상세 (전 Phase ✅ 완료) |
+| Phase 문서 | `Phase/Phase*.md` | Phase별 개발 상세 (Phase 1~10 ✅ 완료, Phase 11 🔲 미시작) |
 
 ---
 
@@ -326,3 +333,5 @@ stock-analyzer/
 | 2026-04-20 | Compare AI 분석 JSON 파싱 실패 수정 — max_tokens 2048→4096 확장. |
 | 2026-04-21 | Fundamentals 부분 응답 병합 — yfinance 누락 필드를 FMP key-metrics-ttm으로 보완. |
 | 2026-04-21 | BACKLOG #1~#13 전체 완료. |
+| 2026-04-22 | 캐시 TTL 상향 — quote/market 1분→5분, movers 5분→15분, news 5분→10분. |
+| 2026-04-22 | Phase 11 신규 생성 — UI/UX 개선 + 모바일 최적화 (5개 항목). |
