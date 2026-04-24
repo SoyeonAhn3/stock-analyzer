@@ -36,6 +36,12 @@ SYSTEM_PROMPT = """너는 주식 뉴스 분석 전문가야.
 }"""
 
 
+_ALLOWED_KEYS = {
+    "overall_sentiment", "sentiment_score", "recent_news", "earnings",
+    "analyst_consensus", "key_events_upcoming", "summary",
+}
+
+
 async def run(ticker: str, quick_look_data: dict) -> dict[str, Any]:
     """뉴스 Agent 실행.
 
@@ -57,10 +63,11 @@ async def run(ticker: str, quick_look_data: dict) -> dict[str, Any]:
     result = call_claude(SYSTEM_PROMPT, user_message)
 
     if result["parsed"]:
+        filtered = {k: v for k, v in result["data"].items() if k in _ALLOWED_KEYS}
         return {
             "agent": "news",
             "status": "success",
-            **result["data"],
+            **filtered,
         }
 
     # JSON 파싱 실패해도 raw_output이 있으면 부분 성공으로 처리

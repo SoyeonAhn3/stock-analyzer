@@ -41,6 +41,12 @@ SYSTEM_PROMPT = """너는 주식 재무 분석 전문가야.
 }"""
 
 
+_ALLOWED_KEYS = {
+    "price_position", "valuation", "technicals_summary",
+    "financial_health", "summary",
+}
+
+
 async def run(ticker: str, quick_look_data: dict) -> dict[str, Any]:
     """Data Agent 실행.
 
@@ -60,10 +66,11 @@ async def run(ticker: str, quick_look_data: dict) -> dict[str, Any]:
     result = call_claude(SYSTEM_PROMPT, user_message)
 
     if result["parsed"]:
+        filtered = {k: v for k, v in result["data"].items() if k in _ALLOWED_KEYS}
         return {
             "agent": "data",
             "status": "success",
-            **result["data"],
+            **filtered,
         }
 
     if result.get("raw_output"):

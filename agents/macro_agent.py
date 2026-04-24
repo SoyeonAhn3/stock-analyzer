@@ -42,6 +42,12 @@ SYSTEM_PROMPT = """너는 거시경제 분석 전문가야.
 }"""
 
 
+_ALLOWED_KEYS = {
+    "fed_rate", "rate_outlook", "inflation", "employment",
+    "sector_trend", "market_sentiment", "risk_factors", "summary",
+}
+
+
 async def run(ticker: str, quick_look_data: dict) -> dict[str, Any]:
     """Macro Agent 실행.
 
@@ -62,10 +68,11 @@ async def run(ticker: str, quick_look_data: dict) -> dict[str, Any]:
     result = call_claude(SYSTEM_PROMPT, user_message)
 
     if result["parsed"]:
+        filtered = {k: v for k, v in result["data"].items() if k in _ALLOWED_KEYS}
         return {
             "agent": "macro",
             "status": "success",
-            **result["data"],
+            **filtered,
         }
 
     if result.get("raw_output"):

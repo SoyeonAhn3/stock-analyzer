@@ -42,6 +42,11 @@ SYSTEM_PROMPT = """너는 시니어 주식 애널리스트야.
 }"""
 
 # 신뢰도 하향 매핑
+_ALLOWED_KEYS = {
+    "verdict", "confidence", "bull_case", "bear_case", "key_factors",
+    "risk_level", "time_horizon", "summary", "disclaimer",
+}
+
 _CONFIDENCE_DOWNGRADE = {
     "high": "medium",
     "medium": "low",
@@ -71,10 +76,11 @@ def run(
     result = call_claude(SYSTEM_PROMPT, user_message)
 
     if result["parsed"]:
+        filtered = {k: v for k, v in result["data"].items() if k in _ALLOWED_KEYS}
         final = {
             "agent": "analyst",
             "status": "success",
-            **result["data"],
+            **filtered,
         }
     elif result.get("raw_output"):
         logger.warning("Analyst Agent: JSON 파싱 실패, raw_output 반환")

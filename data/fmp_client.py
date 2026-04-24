@@ -6,6 +6,7 @@ from typing import Any, Optional
 import requests
 
 from config.api_config import FMP_API_KEY, FMP_BASE_URL, API_TIMEOUT
+from data.sanitize import mask_sensitive
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,9 @@ class FMPClient:
 
     def __init__(self):
         self._call_count = 0
+
+    def __repr__(self) -> str:
+        return f"FMPClient(calls={self._call_count})"
 
     @property
     def call_count(self) -> int:
@@ -37,7 +41,7 @@ class FMPClient:
                 return None
             return data
         except Exception as e:
-            logger.warning("FMP %s failed: %s", endpoint, e)
+            logger.warning("FMP %s failed: %s", endpoint, mask_sensitive(str(e)))
             return None
 
     def get_fundamentals(self, ticker: str) -> Optional[dict[str, Any]]:

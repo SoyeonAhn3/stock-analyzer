@@ -115,14 +115,14 @@ def get_watchlist_quotes(watchlist: list[str]) -> list[dict[str, Any]]:
 
 
 def save_watchlist_to_file(watchlist: list[str]) -> None:
-    """하위 호환용 — SQLite에 일괄 저장."""
+    """하위 호환용 — SQLite에 일괄 저장 (트랜잭션 보장)."""
     conn = get_connection()
     try:
-        conn.execute("DELETE FROM watchlist")
-        conn.executemany(
-            "INSERT INTO watchlist (ticker) VALUES (?)",
-            [(t,) for t in watchlist],
-        )
-        conn.commit()
+        with conn:
+            conn.execute("DELETE FROM watchlist")
+            conn.executemany(
+                "INSERT INTO watchlist (ticker) VALUES (?)",
+                [(t,) for t in watchlist],
+            )
     finally:
         conn.close()

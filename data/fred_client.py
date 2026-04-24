@@ -6,6 +6,7 @@ from typing import Any, Optional
 import requests
 
 from config.api_config import FRED_API_KEY, FRED_BASE_URL, API_TIMEOUT
+from data.sanitize import mask_sensitive
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,9 @@ class FREDClient:
 
     def __init__(self):
         self._call_count = 0
+
+    def __repr__(self) -> str:
+        return f"FREDClient(calls={self._call_count})"
 
     @property
     def call_count(self) -> int:
@@ -50,7 +54,7 @@ class FREDClient:
             observations = data.get("observations", [])
             return [{"date": o["date"], "value": float(o["value"])} for o in observations if o["value"] != "."]
         except Exception as e:
-            logger.warning("FRED %s failed: %s", series_id, e)
+            logger.warning("FRED %s failed: %s", series_id, mask_sensitive(str(e)))
             return None
 
     def get_fed_rate(self) -> Optional[dict[str, Any]]:

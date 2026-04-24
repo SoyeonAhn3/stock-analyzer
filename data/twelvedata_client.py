@@ -6,6 +6,7 @@ from typing import Any, Optional
 import requests
 
 from config.api_config import TWELVEDATA_API_KEY, TWELVEDATA_BASE_URL, API_TIMEOUT
+from data.sanitize import mask_sensitive
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,9 @@ class TwelveDataClient:
 
     def __init__(self):
         self._call_count = 0
+
+    def __repr__(self) -> str:
+        return f"TwelveDataClient(calls={self._call_count})"
 
     @property
     def call_count(self) -> int:
@@ -36,7 +40,7 @@ class TwelveDataClient:
                 return None
             return data
         except Exception as e:
-            logger.warning("Twelve Data %s failed: %s", endpoint, e)
+            logger.warning("Twelve Data %s failed: %s", endpoint, mask_sensitive(str(e)))
             return None
 
     def get_rsi(self, ticker: str, interval: str = "1day", time_period: int = 14) -> Optional[dict[str, Any]]:

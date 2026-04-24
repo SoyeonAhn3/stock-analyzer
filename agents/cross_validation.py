@@ -40,6 +40,11 @@ SYSTEM_PROMPT = """너는 투자 분석 교차검증 전문가야.
 }"""
 
 
+_ALLOWED_KEYS = {
+    "conflicts", "agreements", "confidence_adjustment", "notes",
+}
+
+
 def run(agent_results: dict[str, Any]) -> dict[str, Any]:
     """교차검증 Agent 실행 (동기 함수).
 
@@ -60,10 +65,11 @@ def run(agent_results: dict[str, Any]) -> dict[str, Any]:
     result = call_claude(SYSTEM_PROMPT, user_message)
 
     if result["parsed"]:
+        filtered = {k: v for k, v in result["data"].items() if k in _ALLOWED_KEYS}
         return {
             "agent": "cross_validation",
             "status": "success",
-            **result["data"],
+            **filtered,
         }
 
     if result.get("raw_output"):

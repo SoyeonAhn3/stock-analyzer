@@ -6,6 +6,7 @@ from typing import Any, Optional
 import requests
 
 from config.api_config import FINNHUB_API_KEY, FINNHUB_BASE_URL, API_TIMEOUT
+from data.sanitize import mask_sensitive
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,9 @@ class FinnhubClient:
     def __init__(self):
         self._call_count = 0
         self._headers = {"X-Finnhub-Token": FINNHUB_API_KEY}
+
+    def __repr__(self) -> str:
+        return f"FinnhubClient(calls={self._call_count})"
 
     @property
     def call_count(self) -> int:
@@ -35,7 +39,7 @@ class FinnhubClient:
                 return None
             return data
         except Exception as e:
-            logger.warning("Finnhub %s failed: %s", endpoint, e)
+            logger.warning("Finnhub %s failed: %s", endpoint, mask_sensitive(str(e)))
             return None
 
     def get_quote(self, ticker: str) -> Optional[dict[str, Any]]:
