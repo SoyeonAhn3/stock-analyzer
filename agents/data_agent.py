@@ -5,6 +5,7 @@
     result = await run("NVDA", quick_look_data)
 """
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -62,8 +63,8 @@ async def run(ticker: str, quick_look_data: dict) -> dict[str, Any]:
     # 1단계: 프롬프트 구성 (API 호출 없음, 데이터 재사용)
     user_message = _build_message(ticker, quick_look_data)
 
-    # 2단계: Claude 호출
-    result = call_claude(SYSTEM_PROMPT, user_message)
+    # 2단계: Claude 호출 (동기 함수를 별도 스레드에서 실행하여 이벤트 루프 블로킹 방지)
+    result = await asyncio.to_thread(call_claude, SYSTEM_PROMPT, user_message)
 
     if result["parsed"]:
         filtered = {k: v for k, v in result["data"].items() if k in _ALLOWED_KEYS}

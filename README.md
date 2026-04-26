@@ -119,7 +119,8 @@ stock-analyzer/
 │   ├── database.py                 # SQLite 연결 관리 + 테이블 초기화 (Phase 10)
 │   ├── analysis_cache.py           # AI 분석 결과 캐시 (Phase 10)
 │   ├── ticker_list.py              # S&P 500 종목 리스트 (Phase 10)
-│   └── alerts.py                   # 가격 알림 CRUD (Phase 10)
+│   ├── alerts.py                   # 가격 알림 CRUD (Phase 10)
+│   └── sanitize.py                 # API 키 로그 마스킹 유틸 (Phase 11)
 │
 ├── agents/                         # AI Agent 계층 (Phase 3~5)
 │   ├── claude_client.py            # Claude API 기본 호출
@@ -218,7 +219,8 @@ stock-analyzer/
 │   ├── Phase8_QuickLook_AI분석_화면.md             # ✅ 완료
 │   ├── Phase9_나머지화면_최종통합.md                # ✅ 완료
 │   ├── Phase10_UX개선_데이터영속화.md              # ✅ 완료
-│   └── Phase11_UI_UX개선_모바일최적화.md           # 🔲 미시작
+│   ├── Phase11_코드품질개선.md                     # ✅ 완료
+│   └── Phase12_UI_UX개선_모바일최적화.md           # 🔲 미시작
 │
 └── pre-requirement/                # 기획 문서
     ├── draft.txt                   # 기능 기술서
@@ -256,16 +258,23 @@ stock-analyzer/
 |:-----:|------|:----:|-----------|
 | 10 | UX 개선 + 데이터 영속화 | ✅ | 검색 자동완성 + Watchlist UI + SQLite + 가격 알림 + 반응형 |
 
-### UI/UX 개선 + 모바일 최적화 (Phase 11)
+### 코드 품질 개선 (Phase 11)
 
 | Phase | 이름 | 상태 | 핵심 산출물 |
 |:-----:|------|:----:|-----------|
-| 11 | UI/UX 개선 + 모바일 최적화 | 🔲 | 모바일 반응형 + 바텀 네비 + 터치 UX + 스켈레톤 UI + UI 통일 |
+| 11 | 코드 품질 개선 | ✅ | API 키 마스킹 + 싱글턴 + 5개 병렬화 + 블로킹 해소 + import/median 정리 |
+
+### UI/UX 개선 + 모바일 최적화 (Phase 12)
+
+| Phase | 이름 | 상태 | 핵심 산출물 |
+|:-----:|------|:----:|-----------|
+| 12 | UI/UX 개선 + 모바일 최적화 | 🔲 | 모바일 반응형 + 바텀 네비 + 터치 UX + 스켈레톤 UI + UI 통일 |
 
 ---
 
 ## 설계 특징
 
+- **병렬 처리**: 데이터 수집(3개), 기술지표(5개), 시장지수(6개), 매크로(4개) 병렬화 — 응답 속도 2~3배 개선
 - **데이터 재사용**: Quick Look 데이터를 AI Agent가 그대로 사용하여 API 호출 최소화
 - **캐시 TTL 분리**: 시세(60초)는 짧게, 재무/차트/기술지표(5분)는 길게 — 데이터 특성에 맞춘 갱신 주기
 - **Graceful Degradation**: Agent 3개 중 일부 실패해도 나머지로 분석 진행
@@ -287,7 +296,7 @@ stock-analyzer/
 | **디자인 스펙 (권위 문서)** | `pre-requirement/design-spec.md` | 컬러 토큰, 레이아웃 구조, 테마, Settings |
 | 데이터 흐름 정리 | `pre-requirement/data_flow.txt` | 사용자 입력 → Quick Look → Deep Analysis 전체 흐름 |
 | UI 레퍼런스 | `pre-requirement/Stock Analyzer UI.png` | UI 디자인 참고 이미지 |
-| Phase 문서 | `Phase/Phase*.md` | Phase별 개발 상세 (Phase 1~10 ✅ 완료, Phase 11 🔲 미시작) |
+| Phase 문서 | `Phase/Phase*.md` | Phase별 개발 상세 (Phase 1~11 ✅ 완료, Phase 12 🔲 미시작) |
 
 ---
 
@@ -334,4 +343,6 @@ stock-analyzer/
 | 2026-04-21 | Fundamentals 부분 응답 병합 — yfinance 누락 필드를 FMP key-metrics-ttm으로 보완. |
 | 2026-04-21 | BACKLOG #1~#13 전체 완료. |
 | 2026-04-22 | 캐시 TTL 상향 — quote/market 1분→5분, movers 5분→15분, news 5분→10분. |
-| 2026-04-22 | Phase 11 신규 생성 — UI/UX 개선 + 모바일 최적화 (5개 항목). |
+| 2026-04-22 | Phase 12 신규 생성 — UI/UX 개선 + 모바일 최적화 (5개 항목). |
+| 2026-04-24 | Phase 11 신규 생성 — Code Review 기반 코드 품질 개선 (보안+성능+품질 15개 항목). |
+| 2026-04-27 | Phase 11 완료 — 싱글턴 전환, 5개 병렬화, API 키 마스킹, import/median 정리. |

@@ -30,6 +30,13 @@ def list_alerts():
     return {"alerts": get_active_alerts()}
 
 
+@router.get("/alerts/triggered")
+def triggered():
+    """트리거된 알림 조회. 현재가를 체크하여 조건 충족된 알림 반환."""
+    results = check_triggered()
+    return {"triggered": results}
+
+
 @router.delete("/alerts/{alert_id}")
 def remove(alert_id: int):
     """알림 삭제."""
@@ -38,10 +45,3 @@ def remove(alert_id: int):
         return {"status": "deleted", "id": alert_id}
     except KeyError as e:
         raise HTTPException(404, str(e))
-
-
-@router.get("/alerts/triggered")
-def triggered():
-    """트리거된 알림 조회. 현재가를 체크하여 조건 충족된 알림 반환."""
-    results = check_triggered()
-    return {"triggered": results}

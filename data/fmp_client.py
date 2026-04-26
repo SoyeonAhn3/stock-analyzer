@@ -1,6 +1,7 @@
 """FMP (Financial Modeling Prep) 래퍼 — 섹터 스크리닝, 재무제표."""
 
 import logging
+from statistics import median
 from typing import Any, Optional
 
 import requests
@@ -102,9 +103,7 @@ class FMPClient:
         pe_values = [s["pe"] for s in data if s.get("pe") and s["pe"] > 0]
         if not pe_values:
             return None
-        pe_values.sort()
-        mid = len(pe_values) // 2
-        median_pe = pe_values[mid] if len(pe_values) % 2 else (pe_values[mid - 1] + pe_values[mid]) / 2
+        median_pe = median(pe_values)
         return {
             "source": "fmp",
             "sector": sector,

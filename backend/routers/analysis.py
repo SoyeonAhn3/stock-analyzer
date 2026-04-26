@@ -1,5 +1,7 @@
 """AI 분석 엔드포인트 — 5-Agent 파이프라인 실행 + 캐시."""
 
+import asyncio
+
 from fastapi import APIRouter, HTTPException
 
 from data.quote import get_quote
@@ -25,13 +27,14 @@ async def analyze(ticker: str, force: bool = False):
         if cached:
             return cached
 
-    # Quick Look 데이터 수집
-    quote_data = get_quote(ticker)
+    # Quick Look 데이터 수집 (3개 독립 호출 병렬 실행)
+    quote_data, fundamentals_data, technicals_data = await asyncio.gather(
+        asyncio.to_thread(get_quote, ticker),
+        asyncio.to_thread(get_fundamentals, ticker),
+        asyncio.to_thread(get_technicals, ticker),
+    )
     if quote_data is None:
         raise HTTPException(404, f"Cannot find ticker {ticker}")
-
-    fundamentals_data = get_fundamentals(ticker)
-    technicals_data = get_technicals(ticker)
 
     # Agent들이 평탄(flat) 구조의 quick_look_data를 기대함 (key → value 직접 접근)
     quick_look_data = {"ticker": ticker}

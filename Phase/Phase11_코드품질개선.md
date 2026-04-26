@@ -1,8 +1,8 @@
-# Phase 11 — 코드 품질 개선 (Code Review 기반) `🔲 미시작`
+# Phase 11 — 코드 품질 개선 (Code Review 기반) `✅ 완료`
 
 > 4-Agent Code Review Pipeline 리뷰 결과(70/100, C등급) 기반 Top 10 이슈 수정
 
-**상태**: 🔲 미시작
+**상태**: ✅ 완료 (Step 1 보안 + Step 2 성능 + Step 3 코드 품질)
 **선행 조건**: Phase 10 완료 (UX 개선 + 데이터 영속화)
 **리뷰 리포트**: `code-review-pipeline/output/stock-analyzer_review_report.md`
 
@@ -18,16 +18,16 @@
 
 | # | 항목 | 상태 | 심각도 | 난이도 | 예상 소요 |
 |---|---|---|---|---|---|
-| 1 | API 키 인스턴스 변수 노출 방지 | 🔲 | Critical | 하 | 30분 |
-| 2 | API 키 URL 쿼리 파라미터 로그 마스킹 | 🔲 | Critical | 중 | 1시간 |
-| 3 | watchlist DELETE+INSERT 트랜잭션 래핑 | 🔲 | Critical | 하 | 30분 |
-| 4 | AI 응답 `**result['data']` 무검증 언패킹 수정 | 🔲 | Warning | 하 | 30분 |
-| 5 | Anthropic 클라이언트 싱글턴 전환 | 🔲 | Critical | 하 | 30분 |
-| 6 | `analyze()` 3개 독립 호출 병렬화 | 🔲 | Critical | 중 | 1시간 |
-| 7 | `get_technicals()` 5개 API 호출 병렬화 | 🔲 | Critical | 중 | 1시간 |
-| 8 | async Agent 내 동기 `call_claude()` 블로킹 해소 | 🔲 | Critical | 상 | 1시간 |
-| 9 | `get_market_indices()` 6개 지수 순차 호출 병렬화 | 🔲 | Critical | 중 | 1시간 |
-| 10 | `get_macro_summary()` 4개 HTTP 요청 병렬화 | 🔲 | Critical | 중 | 1시간 |
+| 1 | API 키 인스턴스 변수 노출 방지 | ✅ | Critical | 하 | 30분 |
+| 2 | API 키 URL 쿼리 파라미터 로그 마스킹 | ✅ | Critical | 중 | 1시간 |
+| 3 | watchlist DELETE+INSERT 트랜잭션 래핑 | ✅ | Critical | 하 | 30분 |
+| 4 | AI 응답 `**result['data']` 무검증 언패킹 수정 | ✅ | Warning | 하 | 30분 |
+| 5 | Anthropic 클라이언트 싱글턴 전환 | ✅ | Critical | 하 | 30분 |
+| 6 | `analyze()` 3개 독립 호출 병렬화 | ✅ | Critical | 중 | 1시간 |
+| 7 | `get_technicals()` 5개 API 호출 병렬화 | ✅ | Critical | 중 | 1시간 |
+| 8 | async Agent 내 동기 `call_claude()` 블로킹 해소 | ✅ | Critical | 상 | 1시간 |
+| 9 | `get_market_indices()` 6개 지수 순차 호출 병렬화 | ✅ | Critical | 중 | 1시간 |
+| 10 | `get_macro_summary()` 4개 HTTP 요청 병렬화 | ✅ | Critical | 중 | 1시간 |
 
 ---
 
@@ -169,13 +169,13 @@ quote, fundamentals, technicals = await asyncio.gather(
 
 > Top 10 수정 과정에서 자연스럽게 함께 적용할 Warning 수준 개선 사항
 
-| # | 파일 | 이슈 | 개선 |
-|---|---|---|---|
-| 1 | `agents/sector_analyzer.py` L215 | `time.sleep(3)` → async 컨텍스트 블로킹 | `await asyncio.sleep(3)` 전환 |
-| 2 | `data/finnhub_client.py` L59 | `datetime.now()` 2회 호출 → 날짜 불일치 가능 | 1회 저장 후 재사용 |
-| 3 | `data/finnhub_client.py` L55 | 함수 내부 `import datetime` | 모듈 최상단으로 이동 |
-| 4 | `data/fmp_client.py` L93 | 수동 중앙값 계산 | `statistics.median()` 사용 |
-| 5 | `backend/routers/alerts.py` L270 | 정적 경로(`/triggered`) vs 동적 경로(`/{alert_id}`) 충돌 | 정적 경로 먼저 등록 |
+| # | 파일 | 이슈 | 개선 | 상태 |
+|---|---|---|---|---|
+| 1 | `agents/sector_analyzer.py` L215 | 함수 내부 `import time` | 모듈 최상단으로 이동 | ✅ |
+| 2 | `data/finnhub_client.py` L66-67 | `datetime.now()` 2회 호출 → 날짜 불일치 가능 | 1회 저장 후 재사용 | ✅ |
+| 3 | `data/finnhub_client.py` L65 | 함수 내부 `import datetime` | 모듈 최상단으로 이동 | ✅ |
+| 4 | `data/fmp_client.py` L105-107 | 수동 중앙값 계산 (3줄) | `statistics.median()` 1줄로 대체 | ✅ |
+| 5 | `backend/routers/alerts.py` L33,43 | 정적 경로(`/triggered`) vs 동적 경로(`/{alert_id}`) 순서 | 정적 경로 먼저 등록 | ✅ |
 
 ---
 
@@ -231,3 +231,5 @@ quote, fundamentals, technicals = await asyncio.gather(
 | 날짜 | 내용 |
 |---|---|
 | 2026-04-24 | Phase 11 문서 신규 생성 (Code Review 기반 품질 개선) |
+| 2026-04-26 | Step 2 성능 개선 완료 — 싱글턴 전환, 5개 병렬화 구현 및 테스트 통과 |
+| 2026-04-26 | Step 3 코드 품질 완료 — import 정리, datetime 통일, median 표준화, 경로 순서 수정 |

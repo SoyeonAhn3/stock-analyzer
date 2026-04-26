@@ -10,6 +10,7 @@
 import asyncio
 import json
 import logging
+import time
 from typing import Any, Optional
 
 from agents.claude_client import call_claude, CLAUDE_MAX_TOKENS
@@ -211,7 +212,6 @@ def _run_ai_analysis(stocks_data: list[dict], sector_or_theme: str) -> Optional[
             return result["data"]
         logger.warning("AI 분석 파싱 실패 (시도 %d/2): %s", attempt + 1, result.get("error", ""))
         if attempt == 0:
-            import time
             time.sleep(3)
 
     logger.error("AI 분석 2회 시도 모두 실패")

@@ -1,6 +1,7 @@
 """Finnhub 래퍼 — 시세, 뉴스, 애널리스트 추천."""
 
 import logging
+from datetime import datetime, timedelta
 from typing import Any, Optional
 
 import requests
@@ -62,9 +63,9 @@ class FinnhubClient:
 
     def get_news(self, ticker: str, days: int = 7) -> Optional[dict[str, Any]]:
         """종목 뉴스 조회."""
-        from datetime import datetime, timedelta
-        end = datetime.now().strftime("%Y-%m-%d")
-        start = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+        now = datetime.now()
+        end = now.strftime("%Y-%m-%d")
+        start = (now - timedelta(days=days)).strftime("%Y-%m-%d")
         data = self._get("company-news", {"symbol": ticker, "from": start, "to": end})
         if not data:
             return None

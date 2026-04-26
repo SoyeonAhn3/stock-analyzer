@@ -23,6 +23,15 @@ CLAUDE_MODEL = "claude-sonnet-4-20250514"
 CLAUDE_MAX_TOKENS = 2048
 CLAUDE_TIMEOUT = 60  # seconds
 
+_client: Anthropic | None = None
+
+
+def _get_client() -> Anthropic:
+    global _client
+    if _client is None:
+        _client = Anthropic(api_key=ANTHROPIC_API_KEY, timeout=CLAUDE_TIMEOUT)
+    return _client
+
 
 def call_claude(system_prompt: str, user_message: str, max_tokens: int | None = None) -> dict[str, Any]:
     """Claude API를 호출하고 JSON 파싱을 시도한다.
@@ -52,7 +61,7 @@ def call_claude(system_prompt: str, user_message: str, max_tokens: int | None = 
         }
 
     try:
-        client = Anthropic(api_key=ANTHROPIC_API_KEY, timeout=CLAUDE_TIMEOUT)
+        client = _get_client()
         response = client.messages.create(
             model=CLAUDE_MODEL,
             max_tokens=max_tokens or CLAUDE_MAX_TOKENS,

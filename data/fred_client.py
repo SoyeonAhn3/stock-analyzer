@@ -1,6 +1,7 @@
 """FRED 래퍼 — 연준 금리, CPI, 실업률 등 매크로 경제 지표."""
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
 
 import requests
@@ -95,11 +96,18 @@ class FREDClient:
         }
 
     def get_macro_summary(self) -> Optional[dict[str, Any]]:
-        """매크로 지표 종합 요약."""
-        fed = self.get_fed_rate()
-        cpi = self.get_cpi()
-        unemp = self.get_unemployment()
-        spread = self.get_treasury_spread()
+        """매크로 지표 종합 요약 (4개 API 병렬 호출)."""
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            f_fed = pool.submit(self.get_fed_rate)
+            f_cpi = pool.submit(self.get_cpi)
+            f_unemp = pool.submit(self.get_unemployment)
+            f_spread = pool.submit(self.get_treasury_spread)
+
+        fed = f_fed.result()
+        cpi = f_cpi.result()
+        unemp = f_unemp.result()
+        spread = f_spread.result()
+
         if not any([fed, cpi, unemp, spread]):
             return None
         return {

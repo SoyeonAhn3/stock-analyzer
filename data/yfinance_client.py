@@ -1,6 +1,7 @@
 """yfinance 래퍼 — 주가, 재무제표, 히스토리, 시장 지수."""
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
 
 import yfinance as yf
@@ -112,17 +113,31 @@ class YFinanceClient:
             "SPY": "^GSPC", "NASDAQ": "^IXIC", "DOW": "^DJI",
             "BTC": "BTC-USD", "ETH": "ETH-USD", "VIX": "^VIX",
         }
-        try:
-            self._call_count += 1
-            result = {}
-            for name, symbol in indices.items():
+        self._call_count += 1
+
+        def _fetch_one(name: str, symbol: str) -> tuple[str, Optional[dict]]:
+            try:
                 t = yf.Ticker(symbol)
                 info = t.fast_info
-                result[name] = {
+                return name, {
                     "price": info.last_price,
                     "previous_close": info.previous_close,
                     "change_pct": round((info.last_price - info.previous_close) / info.previous_close * 100, 2),
                 }
+            except Exception as e:
+                logger.warning("yfinance index %s failed: %s", symbol, e)
+                return name, None
+
+        try:
+            with ThreadPoolExecutor(max_workers=6) as pool:
+                futures = [pool.submit(_fetch_one, name, symbol) for name, symbol in indices.items()]
+            result = {}
+            for f in futures:
+                name, data = f.result()
+                if data is not None:
+                    result[name] = data
+            if not result:
+                return None
             return {"source": "yfinance", "indices": result}
         except Exception as e:
             logger.warning("yfinance get_market_indices failed: %s", e)

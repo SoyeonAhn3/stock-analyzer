@@ -8,6 +8,7 @@
 """
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
 
 from config.api_config import FALLBACK_PRIORITY, CACHE_TTL
@@ -139,11 +140,18 @@ class APIClient:
             return cached
 
         try:
-            rsi = self.twelvedata.get_rsi(ticker)
-            macd = self.twelvedata.get_macd(ticker)
-            bbands = self.twelvedata.get_bbands(ticker)
-            ma50 = self.twelvedata.get_ma(ticker, time_period=50)
-            ma200 = self.twelvedata.get_ma(ticker, time_period=200)
+            with ThreadPoolExecutor(max_workers=5) as pool:
+                f_rsi = pool.submit(self.twelvedata.get_rsi, ticker)
+                f_macd = pool.submit(self.twelvedata.get_macd, ticker)
+                f_bbands = pool.submit(self.twelvedata.get_bbands, ticker)
+                f_ma50 = pool.submit(self.twelvedata.get_ma, ticker, time_period=50)
+                f_ma200 = pool.submit(self.twelvedata.get_ma, ticker, time_period=200)
+
+            rsi = f_rsi.result()
+            macd = f_macd.result()
+            bbands = f_bbands.result()
+            ma50 = f_ma50.result()
+            ma200 = f_ma200.result()
 
             if not any([rsi, macd, bbands]):
                 return None
