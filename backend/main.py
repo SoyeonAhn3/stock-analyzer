@@ -5,7 +5,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routers import quote, market, analysis, sector, compare, watchlist, guide, search, alerts
+from backend.routers import quote, market, analysis, sector, compare, watchlist, guide, search, alerts, portfolio, sync
 from data.database import init_db
 
 app = FastAPI(
@@ -41,6 +41,8 @@ app.include_router(watchlist.router, prefix="/api", tags=["Watchlist"])
 app.include_router(guide.router, prefix="/api", tags=["Guide"])
 app.include_router(search.router, prefix="/api", tags=["Search"])
 app.include_router(alerts.router, prefix="/api", tags=["Alerts"])
+app.include_router(portfolio.router, prefix="/api", tags=["Portfolio"])
+app.include_router(sync.router, prefix="/api", tags=["Sync"])
 
 
 # DB 초기화 (테이블 생성 + JSON 마이그레이션)

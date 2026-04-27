@@ -34,3 +34,4 @@ export const RADIUS = {
 
 export const SIDEBAR_WIDTH = '240px';
 export const TICKER_BAR_HEIGHT = '36px';
+export const BOTTOM_TAB_HEIGHT = '56px';

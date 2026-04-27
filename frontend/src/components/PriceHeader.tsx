@@ -1,5 +1,6 @@
 import { useTheme } from '../theme/ThemeProvider';
 import { FONTS, FONT_SIZES, SPACING, RADIUS } from '../theme/tokens';
+import { useBreakpoint } from '../hooks/useBreakpoint';
 import type { QuoteResponse, FundamentalsResponse } from '../types/api';
 
 interface Props {
@@ -18,6 +19,8 @@ function formatVolume(v: number | null): string {
 
 export default function PriceHeader({ ticker, quote, fundamentals }: Props) {
   const { theme } = useTheme();
+  const bp = useBreakpoint();
+  const isMobile = bp === 'mobile';
   const price = quote?.price;
   const change = quote?.change ?? 0;
   const changePct = quote?.change_percent ?? 0;
@@ -41,7 +44,7 @@ export default function PriceHeader({ ticker, quote, fundamentals }: Props) {
       </div>
 
       {/* Ticker + Price row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: SPACING.md }}>
+      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'flex-start', flexWrap: 'wrap', gap: SPACING.md }}>
         {/* Left: ticker + price */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs }}>
@@ -59,16 +62,16 @@ export default function PriceHeader({ ticker, quote, fundamentals }: Props) {
               {ticker}
             </span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: SPACING.md }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: SPACING.sm, flexWrap: 'wrap' }}>
             <span
               className="numeric"
-              style={{ color: theme.text_primary, fontSize: FONT_SIZES['4xl'], fontWeight: 700 }}
+              style={{ color: theme.text_primary, fontSize: isMobile ? FONT_SIZES['2xl'] : FONT_SIZES['4xl'], fontWeight: 700 }}
             >
               ${price?.toFixed(2) ?? '--'}
             </span>
             <span
               className="numeric"
-              style={{ color: isUp ? theme.up : theme.down, fontSize: FONT_SIZES.lg, fontWeight: 600 }}
+              style={{ color: isUp ? theme.up : theme.down, fontSize: isMobile ? FONT_SIZES.md : FONT_SIZES.lg, fontWeight: 600 }}
             >
               {isUp ? '+' : ''}
               {changePct.toFixed(2)}% ({isUp ? '+' : ''}${Math.abs(change).toFixed(2)})
@@ -77,7 +80,7 @@ export default function PriceHeader({ ticker, quote, fundamentals }: Props) {
         </div>
 
         {/* Right: 52W Range + Volume */}
-        <div style={{ display: 'flex', gap: SPACING.xl, alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: isMobile ? SPACING.md : SPACING.xl, alignItems: 'flex-start' }}>
           {/* 52W Range */}
           <div>
             <div style={{ color: theme.text_muted, fontSize: FONT_SIZES.xs, marginBottom: SPACING.xs }}>
@@ -120,7 +123,7 @@ export default function PriceHeader({ ticker, quote, fundamentals }: Props) {
             <div style={{ color: theme.text_muted, fontSize: FONT_SIZES.xs, marginBottom: SPACING.xs }}>
               VOLUME
             </div>
-            <span className="numeric" style={{ color: theme.text_primary, fontSize: FONT_SIZES.lg, fontWeight: 700 }}>
+            <span className="numeric" style={{ color: theme.text_primary, fontSize: isMobile ? FONT_SIZES.md : FONT_SIZES.lg, fontWeight: 700 }}>
               {formatVolume(quote?.volume ?? null)}
             </span>
           </div>

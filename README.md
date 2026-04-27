@@ -169,7 +169,8 @@ stock-analyzer/
 │       │   ├── SignalBadge.tsx     # bullish/bearish/neutral 뱃지
 │       │   ├── Tooltip.tsx         # 인라인 툴팁
 │       │   ├── CompareChart.tsx    # 종목 비교 차트
-│       │   ├── LoadingSkeleton.tsx # 로딩 스켈레톤
+│       │   ├── LoadingSkeleton.tsx # 로딩 스켈레톤 + SkeletonCard/Chart/Table/Text (Phase 12)
+│       │   ├── BottomTabBar.tsx   # 모바일 하단 탭 바 (Phase 12)
 │       │   ├── ErrorBanner.tsx     # 에러 배너
 │       │   ├── SearchAutocomplete.tsx # 검색 자동완성 (Phase 10)
 │       │   ├── WatchlistButton.tsx # Watchlist 추가/삭제 (Phase 10)
@@ -268,7 +269,7 @@ stock-analyzer/
 
 | Phase | 이름 | 상태 | 핵심 산출물 |
 |:-----:|------|:----:|-----------|
-| 12 | UI/UX 개선 + 모바일 최적화 | 🔲 | 모바일 반응형 + 바텀 네비 + 터치 UX + 스켈레톤 UI + UI 통일 |
+| 12 | UI/UX 개선 + 모바일 최적화 | ✅ | 모바일 반응형 + 바텀 탭 바 + 터치 UX 44px + 스켈레톤 4종 + UI 통일 |
 
 ---
 
@@ -296,7 +297,7 @@ stock-analyzer/
 | **디자인 스펙 (권위 문서)** | `pre-requirement/design-spec.md` | 컬러 토큰, 레이아웃 구조, 테마, Settings |
 | 데이터 흐름 정리 | `pre-requirement/data_flow.txt` | 사용자 입력 → Quick Look → Deep Analysis 전체 흐름 |
 | UI 레퍼런스 | `pre-requirement/Stock Analyzer UI.png` | UI 디자인 참고 이미지 |
-| Phase 문서 | `Phase/Phase*.md` | Phase별 개발 상세 (Phase 1~11 ✅ 완료, Phase 12 🔲 미시작) |
+| Phase 문서 | `Phase/Phase*.md` | Phase별 개발 상세 (Phase 1~12 전체 ✅ 완료) |
 
 ---
 
@@ -346,3 +347,4 @@ stock-analyzer/
 | 2026-04-22 | Phase 12 신규 생성 — UI/UX 개선 + 모바일 최적화 (5개 항목). |
 | 2026-04-24 | Phase 11 신규 생성 — Code Review 기반 코드 품질 개선 (보안+성능+품질 15개 항목). |
 | 2026-04-27 | Phase 11 완료 — 싱글턴 전환, 5개 병렬화, API 키 마스킹, import/median 정리. |
+| 2026-04-27 | Phase 12 완료 — 모바일 반응형 레이아웃(5개 페이지), BottomTabBar 신규, 터치 UX 44px, 스켈레톤 4종 확장, UI 일관성 정리. |

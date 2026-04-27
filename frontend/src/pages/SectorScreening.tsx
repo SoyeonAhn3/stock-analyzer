@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../theme/ThemeProvider';
 import { FONTS, FONT_SIZES, SPACING, RADIUS } from '../theme/tokens';
+import { useBreakpoint } from '../hooks/useBreakpoint';
 import { useApi } from '../hooks/useApi';
 import { API_BASE } from '../config';
 import LoadingSkeleton from '../components/LoadingSkeleton';
@@ -28,6 +29,8 @@ interface ScreeningResult {
 
 export default function SectorScreening() {
   const { theme } = useTheme();
+  const bp = useBreakpoint();
+  const isMobile = bp === 'mobile';
   const navigate = useNavigate();
   const themes = useApi<ThemesResponse>('/themes');
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -147,7 +150,7 @@ export default function SectorScreening() {
               </button>
               <button
                 onClick={() => handleDeleteTheme(name)}
-                style={{ color: theme.text_muted, fontSize: FONT_SIZES.xs, padding: '2px 4px', opacity: 0.6 }}
+                style={{ color: theme.text_muted, fontSize: FONT_SIZES.sm, padding: SPACING.xs, opacity: 0.6 }}
                 title={`Delete ${name}`}
               >
                 x
@@ -305,55 +308,59 @@ export default function SectorScreening() {
               key={stock.ticker}
               style={{
                 display: 'flex',
-                alignItems: 'center',
-                gap: SPACING.md,
+                flexDirection: isMobile ? 'column' : 'row',
+                alignItems: isMobile ? 'flex-start' : 'center',
+                gap: isMobile ? SPACING.sm : SPACING.md,
                 padding: `${SPACING.md} 0`,
                 borderBottom: i < result.top5.length - 1 ? `1px solid ${theme.border}` : 'none',
               }}
             >
-              {/* Rank */}
-              <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: RADIUS.pill,
-                  background: `${theme.accent}20`,
-                  color: theme.accent,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: FONT_SIZES.sm,
-                  fontWeight: 700,
-                  fontFamily: FONTS.numeric,
-                  flexShrink: 0,
-                }}
-              >
-                {i + 1}
+              {/* Top row: Rank + Checkbox + Ticker + Score */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.md }}>
+                {/* Rank */}
+                <div
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: RADIUS.pill,
+                    background: `${theme.accent}20`,
+                    color: theme.accent,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: FONT_SIZES.sm,
+                    fontWeight: 700,
+                    fontFamily: FONTS.numeric,
+                    flexShrink: 0,
+                  }}
+                >
+                  {i + 1}
+                </div>
+
+                {/* Checkbox */}
+                <input
+                  type="checkbox"
+                  checked={selected.has(stock.ticker)}
+                  onChange={() => toggleSelect(stock.ticker)}
+                  style={{ accentColor: theme.accent }}
+                />
+
+                {/* Ticker */}
+                <button
+                  onClick={() => navigate(`/quick-look/${stock.ticker}`)}
+                  style={{ color: theme.text_primary, fontSize: FONT_SIZES.md, fontWeight: 700, minWidth: 60 }}
+                >
+                  {stock.ticker}
+                </button>
+
+                {/* Score */}
+                <span className="numeric" style={{ color: theme.accent, fontSize: FONT_SIZES.sm, fontWeight: 600 }}>
+                  Score: {stock.score}
+                </span>
               </div>
 
-              {/* Checkbox */}
-              <input
-                type="checkbox"
-                checked={selected.has(stock.ticker)}
-                onChange={() => toggleSelect(stock.ticker)}
-                style={{ accentColor: theme.accent }}
-              />
-
-              {/* Ticker */}
-              <button
-                onClick={() => navigate(`/quick-look/${stock.ticker}`)}
-                style={{ color: theme.text_primary, fontSize: FONT_SIZES.md, fontWeight: 700, minWidth: 60 }}
-              >
-                {stock.ticker}
-              </button>
-
-              {/* Score */}
-              <span className="numeric" style={{ color: theme.accent, fontSize: FONT_SIZES.sm, fontWeight: 600 }}>
-                Score: {stock.score}
-              </span>
-
               {/* Reason */}
-              <span style={{ color: theme.text_secondary, fontSize: FONT_SIZES.sm, flex: 1 }}>
+              <span style={{ color: theme.text_secondary, fontSize: FONT_SIZES.sm, flex: 1, paddingLeft: isMobile ? '44px' : 0 }}>
                 "{stock.reason}"
               </span>
             </div>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createChart, createSeriesMarkers, type IChartApi, type ISeriesApi, type ISeriesMarkersPluginApi, CandlestickSeries, HistogramSeries, LineSeries, ColorType } from 'lightweight-charts';
 import { useTheme } from '../theme/ThemeProvider';
 import { FONT_SIZES, SPACING, RADIUS } from '../theme/tokens';
+import { useBreakpoint } from '../hooks/useBreakpoint';
 import { API_BASE } from '../config';
 import type { HistoryRecord } from '../types/api';
 
@@ -23,6 +24,8 @@ interface Props {
 
 export default function Chart({ ticker, markers, initialPeriod }: Props) {
   const { theme, mode } = useTheme();
+  const bp = useBreakpoint();
+  const chartHeight = bp === 'mobile' ? 250 : bp === 'tablet' ? 320 : 400;
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,7 +60,7 @@ export default function Chart({ ticker, markers, initialPeriod }: Props) {
       rightPriceScale: { borderColor: theme.border },
       timeScale: { borderColor: theme.border },
       width: containerRef.current.clientWidth,
-      height: 400,
+      height: chartHeight,
     });
 
     const candle = chart.addSeries(CandlestickSeries, {
@@ -87,7 +90,7 @@ export default function Chart({ ticker, markers, initialPeriod }: Props) {
     ma200Ref.current = ma200;
 
     const handleResize = () => {
-      if (containerRef.current) chart.applyOptions({ width: containerRef.current.clientWidth });
+      if (containerRef.current) chart.applyOptions({ width: containerRef.current.clientWidth, height: chartHeight });
     };
     window.addEventListener('resize', handleResize);
 
@@ -183,7 +186,7 @@ export default function Chart({ ticker, markers, initialPeriod }: Props) {
   return (
     <div style={{ flex: 1 }}>
       {/* Period tabs */}
-      <div style={{ display: 'flex', gap: SPACING.xs, marginBottom: SPACING.md }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACING.xs, marginBottom: SPACING.md }}>
         {PERIODS.map((p) => (
           <button
             key={p}
@@ -202,7 +205,7 @@ export default function Chart({ ticker, markers, initialPeriod }: Props) {
             {p}
           </button>
         ))}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: SPACING.md, alignItems: 'center' }}>
+        <div style={{ marginLeft: bp === 'mobile' ? 0 : 'auto', display: 'flex', gap: SPACING.md, alignItems: 'center' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: SPACING.xs, fontSize: FONT_SIZES.xs }}>
             <span style={{ width: 16, height: 2, background: theme.accent, display: 'inline-block' }} />
             <span style={{ color: theme.text_muted }}>MA(50)</span>

@@ -12,6 +12,7 @@ const MENU_ITEMS = [
   { label: 'Market Overview', path: '/' },
   { label: 'Quick Look', path: '/quick-look' },
   { label: 'Compare Mode', path: '/compare' },
+  { label: 'Portfolio', path: '/portfolio' },
   { label: 'Sector Screening', path: '/sector' },
   { label: "Beginner's Guide", path: '/guide' },
 ];
@@ -74,9 +75,9 @@ export default function Sidebar() {
               display: 'flex',
               alignItems: 'center',
               width: '100%',
-              padding: `${SPACING.sm} ${SPACING.lg}`,
+              padding: `${SPACING.md} ${SPACING.lg}`,
               color: isActive(item.path) ? theme.accent : theme.text_secondary,
-              fontSize: FONT_SIZES.sm,
+              fontSize: FONT_SIZES.md,
               fontWeight: isActive(item.path) ? 600 : 400,
               borderLeft: isActive(item.path) ? `3px solid ${theme.accent}` : '3px solid transparent',
               transition: 'all 0.15s ease',
@@ -107,7 +108,7 @@ export default function Sidebar() {
               display: 'flex',
               alignItems: 'center',
               width: '100%',
-              padding: `${SPACING.xs} 0`,
+              padding: `${SPACING.sm} 0`,
               fontSize: FONT_SIZES.sm,
             }}
           >
@@ -132,8 +133,8 @@ export default function Sidebar() {
               title="Set price alert"
               style={{
                 color: theme.text_muted,
-                fontSize: FONT_SIZES.xs,
-                padding: '2px',
+                fontSize: FONT_SIZES.sm,
+                padding: SPACING.xs,
                 borderRadius: RADIUS.badge,
                 opacity: 0.6,
               }}

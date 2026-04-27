@@ -1,6 +1,7 @@
 import { useTheme } from '../theme/ThemeProvider';
 import { FONT_SIZES, SPACING, TICKER_BAR_HEIGHT, SIDEBAR_WIDTH } from '../theme/tokens';
 import { usePolling } from '../hooks/useApi';
+import LoadingSkeleton from './LoadingSkeleton';
 import type { MarketIndex } from '../types/api';
 
 interface Props {
@@ -64,9 +65,11 @@ export default function TickerBar({ compact = false }: Props) {
         </div>
       ))}
       {!data && (
-        <span style={{ color: theme.text_muted, fontSize: FONT_SIZES.xs }}>
-          Loading market data...
-        </span>
+        <div style={{ display: 'flex', gap: SPACING.lg, alignItems: 'center', flex: 1 }}>
+          <LoadingSkeleton width="80px" height="16px" count={1} />
+          <LoadingSkeleton width="80px" height="16px" count={1} />
+          <LoadingSkeleton width="80px" height="16px" count={1} />
+        </div>
       )}
     </div>
   );

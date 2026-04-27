@@ -16,8 +16,6 @@ export default function KpiCard({ label, value }: Props) {
         border: `1px solid ${theme.border}`,
         borderRadius: RADIUS.card,
         padding: SPACING.md,
-        flex: 1,
-        minWidth: 140,
       }}
     >
       <div

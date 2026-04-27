@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../theme/ThemeProvider';
 import { FONTS, FONT_SIZES, SPACING, RADIUS } from '../theme/tokens';
+import { useBreakpoint } from '../hooks/useBreakpoint';
 import { API_BASE } from '../config';
 import ErrorBanner from '../components/ErrorBanner';
 import CompareChart from '../components/CompareChart';
@@ -23,6 +24,8 @@ function safeRender(val: any): string {
 
 export default function CompareMode() {
   const { theme } = useTheme();
+  const bp = useBreakpoint();
+  const isMobile = bp === 'mobile';
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialTickers = searchParams.get('tickers')?.split(',').filter(Boolean) ?? [];
@@ -125,7 +128,7 @@ export default function CompareMode() {
             }}
           >
             {t}
-            <button onClick={() => removeTicker(t)} style={{ color: theme.accent, fontSize: FONT_SIZES.xs }}>x</button>
+            <button onClick={() => removeTicker(t)} style={{ color: theme.accent, fontSize: FONT_SIZES.sm, padding: SPACING.xs, lineHeight: 1 }}>×</button>
           </span>
         ))}
         {tickers.length < 3 && (
@@ -137,11 +140,11 @@ export default function CompareMode() {
             style={{
               background: 'transparent',
               color: theme.text_primary,
-              fontSize: FONT_SIZES.sm,
-              padding: `${SPACING.xs} ${SPACING.sm}`,
+              fontSize: FONT_SIZES.md,
+              padding: `${SPACING.sm} ${SPACING.md}`,
               border: `1px solid ${theme.border}`,
               borderRadius: RADIUS.button,
-              width: 140,
+              width: isMobile ? '100%' : 160,
             }}
           />
         )}
@@ -174,7 +177,8 @@ export default function CompareMode() {
           <div style={{ color: theme.text_muted, fontSize: FONT_SIZES.xs, fontWeight: 600, letterSpacing: '0.05em', marginBottom: SPACING.md }}>
             COMPARISON TABLE
           </div>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isMobile ? 400 : 'auto' }}>
             <thead>
               <tr>
                 <th style={{ textAlign: 'left', padding: SPACING.sm, color: theme.text_muted, fontSize: FONT_SIZES.xs, borderBottom: `1px solid ${theme.border}` }} />
@@ -230,6 +234,7 @@ export default function CompareMode() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

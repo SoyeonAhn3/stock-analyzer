@@ -4,6 +4,7 @@ import { ThemeProvider, useTheme } from './theme/ThemeProvider';
 import { SIDEBAR_WIDTH, TICKER_BAR_HEIGHT, SPACING } from './theme/tokens';
 import Sidebar from './components/Sidebar';
 import TickerBar from './components/TickerBar';
+import BottomTabBar from './components/BottomTabBar';
 import AlertToast from './components/AlertToast';
 import { useAlerts } from './hooks/useAlerts';
 import { useBreakpoint } from './hooks/useBreakpoint';
@@ -14,6 +15,7 @@ import MarketOverview from './pages/MarketOverview';
 import CompareMode from './pages/CompareMode';
 import SectorScreening from './pages/SectorScreening';
 import Guide from './pages/Guide';
+import Portfolio from './pages/Portfolio';
 
 function AppLayout() {
   const { theme } = useTheme();
@@ -87,9 +89,11 @@ function AppLayout() {
           marginLeft: (isMobile || isTablet) ? 0 : SIDEBAR_WIDTH,
           flex: 1,
           minHeight: '100vh',
-          padding: (isMobile || isTablet)
-            ? `calc(48px + ${SPACING.md}) ${SPACING.md} calc(${TICKER_BAR_HEIGHT} + ${SPACING.md})`
-            : `${SPACING.lg} ${SPACING.lg} calc(${TICKER_BAR_HEIGHT} + ${SPACING.lg})`,
+          padding: isMobile
+            ? `calc(48px + ${SPACING.md}) ${SPACING.md} calc(56px + ${SPACING.md})`
+            : isTablet
+              ? `calc(48px + ${SPACING.md}) ${SPACING.md} calc(${TICKER_BAR_HEIGHT} + ${SPACING.md})`
+              : `${SPACING.lg} ${SPACING.lg} calc(${TICKER_BAR_HEIGHT} + ${SPACING.lg})`,
         }}
       >
         <Routes>
@@ -97,6 +101,7 @@ function AppLayout() {
           <Route path="/quick-look" element={<QuickLook />} />
           <Route path="/quick-look/:ticker" element={<QuickLook />} />
           <Route path="/analysis/:ticker" element={<AIAnalysis />} />
+          <Route path="/portfolio" element={<Portfolio />} />
           <Route path="/compare" element={<CompareMode />} />
           <Route path="/sector" element={<SectorScreening />} />
           <Route path="/guide" element={<Guide />} />
@@ -104,7 +109,7 @@ function AppLayout() {
         </Routes>
       </main>
 
-      <TickerBar compact={isMobile} />
+      {isMobile ? <BottomTabBar /> : <TickerBar compact={false} />}
     </div>
   );
 }

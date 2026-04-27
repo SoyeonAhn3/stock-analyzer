@@ -42,6 +42,7 @@ ul, ol {
 /* Monospace for all numbers */
 .numeric {
   font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Scrollbar */
@@ -69,5 +70,16 @@ ul, ol {
     display: block;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Touch UX: minimum tap targets */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  input, select, textarea {
+    min-height: 44px;
+    font-size: 16px; /* prevents iOS zoom on focus */
   }
 }
