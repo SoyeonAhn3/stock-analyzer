@@ -26,7 +26,6 @@ export default function HoldingCard({
   avgCost,
   currentPrice,
   marketValue,
-  costBasis,
   pnl,
   pnlPct,
   weight,

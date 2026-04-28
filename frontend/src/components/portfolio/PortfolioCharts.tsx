@@ -1,3 +1,4 @@
+import React from 'react';
 import { useTheme } from '../../theme/ThemeProvider';
 import { FONTS, FONT_SIZES, SPACING, RADIUS } from '../../theme/tokens';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
@@ -28,7 +29,7 @@ function DonutChart({ holdings }: { holdings: HoldingData[] }) {
   const items = holdings.filter((h) => h.weight !== null && h.weight > 0);
   if (items.length === 0) return null;
 
-  const paths: JSX.Element[] = [];
+  const paths: React.ReactElement[] = [];
   let cumAngle = -90;
 
   items.forEach((item, i) => {

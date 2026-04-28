@@ -6,7 +6,7 @@ depends_on:
   - dev-log
 produces:
   - GitHub 원격 저장소 업데이트
-  - logs/dev/dev_YYYYMMDD.jsonl (커밋 이력 자동 기록)
+  - logs/dev_YYYYMMDD.jsonl (커밋 이력 자동 기록)
 ---
 
 # GitHub Push Skill
@@ -268,8 +268,8 @@ Read(".claude/skills/dev-log/references/schema.md")
 
 ### 6-3. JSONL 기록
 
-1. 오늘 날짜 기준 파일 경로: `logs/dev/dev_YYYYMMDD.jsonl`
-2. `logs/dev/` 디렉토리 없으면 `mkdir -p logs/dev`
+1. 오늘 날짜 기준 파일 경로: `logs/dev_YYYYMMDD.jsonl`
+2. `logs/` 디렉토리 없으면 `mkdir -p logs`
 3. 파일이 없으면 Write로 신규 생성, 있으면 Edit으로 마지막 줄 뒤에 추가
 
 예시:
