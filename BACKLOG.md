@@ -19,7 +19,10 @@
 | 11 | Compare Analysis 판단 근거 + 데이터 출처 표시 | 중 | **완료** | — |
 | 12 | Cross Sector 분석 품질 개선 (데이터 확충 + 프롬프트 고도화) | 상 | **완료** | — |
 | 13 | Compare 테이블 Fundamentals 누락 수정 (yfinance 부분 응답 + FMP 병합) | 긴급 | **완료** | — |
-| 14 | QuickLook Fundamentals 404 수정 (fast_info + Finviz 폴백) | 긴급 | 미착수 | — |
+| 14 | QuickLook Fundamentals 404 수정 (fast_info + Finviz 폴백) | 긴급 | **완료** | — |
+| 15 | Portfolio Scores 물음표 아이콘 (Tooltip 설명 추가) | 중 | 미착수 | Phase 13 |
+| 16 | Portfolio 배당 분류 임계값 수정 + Yield 소수점 반올림 | 중 | 미착수 | Phase 13 |
+| 17 | Compare Rankings 배열 JSON 렌더링 수정 | 중 | 미착수 | — |
 
 ---
 
@@ -885,3 +888,109 @@ Finviz에서 가져올 수 있는 필드: PE, Forward PE, EPS, PEG, Beta, Sector
 - yfinance `stock.info`: `data/yfinance_client.py:70` (현재 `get_fundamentals()`에서 사용)
 - 폴백 설정: `config/api_config.py:59` (`"fundamentals": ["yfinance", "fmp", "finviz"]`)
 - api_client 폴백: `data/api_client.py:95-134`
+
+### 완료 (2026-05-08)
+- `data/yfinance_client.py`: `get_fundamentals()` — `fast_info` 기반으로 전환, `stock.info`는 로컬 보조로 격하
+- `data/finviz_client.py`: `get_fundamentals()` — `finvizfinance.quote` 사용, PE/EPS/Forward PE/sector 등 제공
+- `data/api_client.py`: `get_fundamentals()` — yfinance → Finviz → FMP 폴백 + 누락 필드 보완 로직
+- 클라우드 시뮬레이션 테스트 통과 (yfinance fast_info만 반환 시 Finviz가 10개 핵심 필드 모두 보완)
+
+---
+
+## 15. Portfolio Scores 물음표 아이콘 (Tooltip 설명 추가)
+
+### 현상
+Portfolio 페이지의 Diversification / Risk / Performance / Quality 점수에 마우스를 올려도 해당 지표가 무엇을 의미하는지 알 수 없음.
+
+### 원인 분석
+`frontend/src/components/portfolio/PortfolioAnalysis.tsx:432-454`의 `ScoreGauge` 컴포넌트에 tooltip/설명 기능이 전혀 없음. 점수 숫자 + 게이지 바 + 등급 라벨만 렌더링.
+
+### 해결 방안
+- `ScoreGauge`에 `description` prop 추가
+- 라벨 옆 물음표(?) 아이콘 배치, 호버 시 설명 팝오버 표시
+- 각 지표별 설명:
+  - **Diversification**: 섹터·종목·국가 분산 정도. 높을수록 리스크 분산이 잘 되어 있음
+  - **Risk**: 포트폴리오 전체 변동성 및 종목 간 상관관계 리스크. 낮을수록 안정적
+  - **Performance**: 수익률, 리스크 대비 수익(샤프비율) 등 종합 성과. 높을수록 우수
+  - **Quality**: 보유 종목의 재무 건전성(ROE, 부채비율 등). 높을수록 우량 종목 비중 높음
+
+### 수정 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `frontend/src/components/portfolio/PortfolioAnalysis.tsx` | `ScoreGauge`에 `description` prop + 물음표 아이콘 + 호버 팝오버 추가 |
+
+---
+
+## 16. Portfolio 배당 분류 임계값 수정 + Yield 소수점 반올림
+
+### 현상
+Portfolio Style에서 "연간 예상 배당금: $56.09 · Yield on Cost: 0.76%"로 배당이 존재하는데, 배당 여부 바에는 0%로 표시됨. 배당이 있는 종목이 "비배당"으로 분류되는 불일치.
+
+### 원인 분석
+
+#### 배당 분류 임계값 문제
+`services/portfolio_calculator.py:543`에서 배당주 분류 기준이 `dividend_yield > 0.01` (1% 초과):
+```python
+if dy and dy > 0.01:    # 1% 초과해야 "배당주"
+    dividend_w += w
+```
+Yield on Cost 0.76% → `0.0076 < 0.01` → "비배당"으로 오분류.
+
+#### Yield 소수점 표시
+`PortfolioAnalysis.tsx:278`에서 `fmt(fundamentals.yield_on_cost, 2)`로 소수점 2자리 표시 중. 사용자 요청에 따라 1자리로 변경 필요.
+
+### 해결 방안
+
+#### A — 배당 분류 임계값 수정
+`portfolio_calculator.py:543`의 임계값을 `0.01` → `0`으로 변경. 배당금이 존재하면(dividend_yield > 0) 배당주로 분류:
+```python
+if dy and dy > 0:
+    dividend_w += w
+```
+
+#### B — Yield on Cost 소수점 반올림
+`PortfolioAnalysis.tsx:278`에서 `fmt(fundamentals.yield_on_cost, 2)` → `fmt(fundamentals.yield_on_cost, 1)`로 변경.
+
+### 수정 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `services/portfolio_calculator.py` | 배당 분류 임계값 `0.01` → `0` |
+| `frontend/src/components/portfolio/PortfolioAnalysis.tsx` | Yield on Cost 소수점 2자리 → 1자리 |
+
+---
+
+## 17. Compare Rankings 배열 JSON 렌더링 수정
+
+### 현상
+Compare Mode에서 AI Compare Analysis(Same Sector) 실행 시, CATEGORY RANKINGS 섹션이 원시 JSON 배열로 출력됨:
+```
+growth: [{"ticker":"OVV","rank":1,"reason":"PEG 0.43으로 ..."},{"ticker":"OXY","rank":2,...}]
+```
+
+### 원인 분석
+`frontend/src/pages/CompareMode.tsx:290-298`에서 rankings 데이터를 `safeRender()` 함수로 렌더링.
+
+`safeRender()`(line 15-23)는 object만 key-value로 풀어주고, **배열은 `JSON.stringify(val)`로 처리**:
+```typescript
+function safeRender(val: any): string {
+  if (typeof val === 'object' && !Array.isArray(val)) {
+    return Object.entries(val).map(([k, v]) => `${k}: ${v}`).join('. ');
+  }
+  return JSON.stringify(val);  // 배열이면 여기로 빠짐
+}
+```
+
+각 카테고리의 `ranking` 값은 `[{ticker, rank, reason}, ...]` 배열 구조인데, 이를 처리하는 전용 렌더링 로직이 없음.
+
+### 해결 방안
+`CompareMode.tsx:290-298`의 rankings 렌더링을 배열 구조 전용 UI로 교체:
+- 각 항목의 `rank`, `ticker`, `reason`을 순위별 카드/행으로 표시
+- 1위/2위/3위 시각적 구분 (색상 또는 아이콘)
+
+### 수정 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `frontend/src/pages/CompareMode.tsx` | rankings 섹션 렌더링 — `safeRender()` → 배열 전용 순위 UI |
