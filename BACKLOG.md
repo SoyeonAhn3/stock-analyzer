@@ -19,6 +19,7 @@
 | 11 | Compare Analysis 판단 근거 + 데이터 출처 표시 | 중 | **완료** | — |
 | 12 | Cross Sector 분석 품질 개선 (데이터 확충 + 프롬프트 고도화) | 상 | **완료** | — |
 | 13 | Compare 테이블 Fundamentals 누락 수정 (yfinance 부분 응답 + FMP 병합) | 긴급 | **완료** | — |
+| 14 | QuickLook Fundamentals 404 수정 (fast_info + Finviz 폴백) | 긴급 | 미착수 | — |
 
 ---
 
@@ -818,3 +819,69 @@ def get_key_metrics_ttm(self, ticker):
 - yfinance `stock.info`: `data/yfinance_client.py:64-107`
 - FMP profile: `data/fmp_client.py:43-63`
 - 프론트엔드 데이터 접근: `frontend/src/pages/CompareMode.tsx:208-211`
+
+---
+
+## 14. QuickLook Fundamentals 404 수정 (fast_info + Finviz 폴백)
+
+### 현상
+배포 환경(Render)에서 QuickLook 페이지 접속 시 Market Cap, P/E, EPS, Forward P/E 등 KPI 카드가 모두 `--`로 표시됨. 차트와 AI 분석은 정상 동작.
+
+### 원인 분석
+
+#### 1단계: yfinance `stock.info` 차단
+yfinance `get_fundamentals()`(`data/yfinance_client.py:70`)는 `stock.info`를 사용한다. `stock.info`는 내부적으로 Yahoo Finance 웹을 스크래핑하는데, Render 등 클라우드 서버 IP에서는 Yahoo가 "Too Many Requests" (429)로 차단한다.
+
+반면 `get_quote()`(`data/yfinance_client.py:29`)는 `stock.fast_info`를 사용하며 이는 경량 JSON API라 클라우드에서도 정상 동작한다.
+
+#### 2단계: FMP 폴백 실패
+`data/api_client.py:95-134`의 `get_fundamentals()` 폴백 체인에서 yfinance 실패 후 FMP를 시도하지만, FMP 무료 플랜이 403 Forbidden을 반환한다.
+
+#### 3단계: Finviz 폴백 미구현
+`config/api_config.py:59`에 `"fundamentals": ["yfinance", "fmp", "finviz"]`로 Finviz가 설정되어 있으나, `data/api_client.py`의 실제 코드에서 Finviz 폴백을 호출하지 않는다.
+
+### 해결 방안: fast_info + Finviz 조합
+
+#### A — `data/yfinance_client.py` `get_fundamentals()` 개선
+`stock.info` 대신 `stock.fast_info`에서 가져올 수 있는 필드 활용:
+- `market_cap` → `fast_info['marketCap']`
+- `week52_high/low` → `fast_info['yearHigh']` / `fast_info['yearLow']`
+
+`fast_info`로 가져올 수 없는 필드(PE, EPS, Forward PE, sector, industry 등)는 None으로 반환.
+
+#### B — `data/api_client.py` `get_fundamentals()` 병합 로직
+yfinance `fast_info`로 1차 데이터 수집 후, None 필드가 3개 이상이면 Finviz로 보완:
+```python
+# 1) fast_info로 기본 데이터
+result = yfinance.get_fundamentals(ticker)  # fast_info 기반
+
+# 2) None 필드 3개 이상이면 Finviz 보완
+missing = sum(1 for f in KEY_FIELDS if result.get(f) is None)
+if missing >= 3:
+    finviz_data = finviz.get_fundamentals(ticker)
+    for key, val in finviz_data.items():
+        if result.get(key) is None and val is not None:
+            result[key] = val
+```
+
+#### C — `data/finviz_client.py` fundamentals 메서드 추가
+Finviz에서 가져올 수 있는 필드: PE, Forward PE, EPS, PEG, Beta, Sector, Industry, Market Cap, Dividend Yield 등.
+
+### 수정 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `data/yfinance_client.py` | `get_fundamentals()` — `stock.info` → `stock.fast_info` 전환, 부분 데이터 반환 허용 |
+| `data/api_client.py` | `get_fundamentals()` — fast_info + Finviz 병합 로직 |
+| `data/finviz_client.py` | `get_fundamentals()` 메서드 추가 (PE, EPS, sector 등) |
+
+### 예상 효과
+- 배포 환경에서도 KPI 카드에 Market Cap, PE, EPS 등 정상 표시
+- yfinance `stock.info` 의존도 제거 → 클라우드 배포 안정성 확보
+- Finviz는 무료, API 키 불필요 → 추가 비용 없음
+
+### 참고
+- yfinance `fast_info`: `data/yfinance_client.py:29` (이미 `get_quote()`에서 사용 중)
+- yfinance `stock.info`: `data/yfinance_client.py:70` (현재 `get_fundamentals()`에서 사용)
+- 폴백 설정: `config/api_config.py:59` (`"fundamentals": ["yfinance", "fmp", "finviz"]`)
+- api_client 폴백: `data/api_client.py:95-134`

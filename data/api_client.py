@@ -93,20 +93,29 @@ class APIClient:
         return self._try_fallback("history", "get_history", ticker=ticker, period=period, interval=interval)
 
     def get_fundamentals(self, ticker: str) -> Optional[dict[str, Any]]:
-        """기업 재무 지표. yfinance 우선 + FMP 보완 병합."""
+        """기업 재무 지표. yfinance(fast_info) 우선 + Finviz 보완 + FMP 보완."""
         cached = cache.get("fundamentals", ticker)
         if cached is not None:
             return cached
 
-        key_fields = ("forward_pe", "eps", "peg_ratio", "dividend_yield",
-                      "debt_to_equity", "roe", "profit_margin", "beta")
+        key_fields = ("pe_ratio", "forward_pe", "eps", "peg_ratio", "dividend_yield",
+                      "debt_to_equity", "roe", "profit_margin", "beta", "sector")
 
+        # 1) yfinance (fast_info 기반, 클라우드에서도 market_cap/52w 확보)
         result = None
         try:
             result = self.yfinance.get_fundamentals(ticker=ticker)
         except Exception as e:
             logger.warning("yfinance fundamentals failed for %s: %s", ticker, e)
 
+        # 2) yfinance 완전 실패 시 Finviz로 대체
+        if result is None:
+            try:
+                result = self.finviz.get_fundamentals(ticker=ticker)
+            except Exception as e:
+                logger.warning("finviz fundamentals fallback failed for %s: %s", ticker, e)
+
+        # 3) Finviz도 실패 시 FMP 시도
         if result is None:
             try:
                 result = self.fmp.get_fundamentals(ticker=ticker)
@@ -116,6 +125,21 @@ class APIClient:
         if result is None:
             return None
 
+        # 4) 핵심 필드 누락 시 Finviz로 보완
+        missing = sum(1 for f in key_fields if result.get(f) is None)
+        if missing >= 3 and result.get("source") != "finviz":
+            try:
+                supplement = self.finviz.get_fundamentals(ticker=ticker)
+                if supplement:
+                    for key, val in supplement.items():
+                        if key not in ("source", "ticker") and result.get(key) is None and val is not None:
+                            result[key] = val
+                    if "finviz" not in (result.get("source") or ""):
+                        result["source"] = f"{result.get('source', 'unknown')}+finviz"
+            except Exception as e:
+                logger.warning("Finviz supplement failed for %s: %s", ticker, e)
+
+        # 5) 여전히 누락 시 FMP key_metrics로 보완
         missing = sum(1 for f in key_fields if result.get(f) is None)
         if missing >= 3:
             try:

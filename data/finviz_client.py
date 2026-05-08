@@ -132,27 +132,90 @@ class FinvizClient:
             return None
 
     def get_fundamentals(self, ticker: str) -> Optional[dict[str, Any]]:
-        """개별 종목 기본 정보 (스크리너 결과에서 추출)."""
+        """개별 종목 재무 지표 (finvizfinance.quote 사용)."""
         try:
             self._call_count += 1
-            foverview = Overview()
-            foverview.set_filter(ticker=ticker)
-            df = foverview.screener_view()
+            from finvizfinance.quote import finvizfinance as FinvizQuote
+            stock = FinvizQuote(ticker)
+            data = stock.ticker_fundament()
 
-            if df is None or df.empty:
+            if not data:
                 return None
 
-            row = df.iloc[0]
+            def _num(val):
+                if val is None or val == '-' or val == '':
+                    return None
+                try:
+                    return float(str(val).replace(',', ''))
+                except (ValueError, TypeError):
+                    return None
+
+            def _pct(val):
+                if val is None or val == '-' or val == '':
+                    return None
+                try:
+                    return round(float(str(val).replace('%', '').replace(',', '')) / 100, 6)
+                except (ValueError, TypeError):
+                    return None
+
+            def _cap(val):
+                if val is None or val == '-' or val == '':
+                    return None
+                try:
+                    s = str(val).replace(',', '')
+                    if s.endswith('T'):
+                        return float(s[:-1]) * 1e12
+                    if s.endswith('B'):
+                        return float(s[:-1]) * 1e9
+                    if s.endswith('M'):
+                        return float(s[:-1]) * 1e6
+                    return float(s)
+                except (ValueError, TypeError):
+                    return None
+
+            def _div_pct(val):
+                """'1.04 (0.36%)' → 0.0036"""
+                if val is None or val == '-' or val == '':
+                    return None
+                try:
+                    import re
+                    m = re.search(r'\(([\d.]+)%\)', str(val))
+                    if m:
+                        return round(float(m.group(1)) / 100, 6)
+                    return None
+                except (ValueError, TypeError):
+                    return None
+
+            def _str(val):
+                if val is None or val == '-' or val == '':
+                    return None
+                return str(val)
+
+            dividend_yield = _pct(data.get("Dividend %"))
+            if dividend_yield is None:
+                dividend_yield = _div_pct(data.get("Dividend TTM"))
+
             return {
                 "source": "finviz",
-                "ticker": row.get("Ticker"),
-                "name": row.get("Company"),
-                "market_cap": row.get("Market Cap"),
-                "sector": row.get("Sector"),
-                "industry": row.get("Industry"),
-                "pe_ratio": row.get("P/E"),
-                "price": row.get("Price"),
-                "country": row.get("Country"),
+                "ticker": ticker,
+                "market_cap": _cap(data.get("Market Cap")),
+                "pe_ratio": _num(data.get("P/E")),
+                "forward_pe": _num(data.get("Forward P/E")),
+                "eps": _num(data.get("EPS (ttm)")),
+                "peg_ratio": _num(data.get("PEG")),
+                "dividend_yield": dividend_yield,
+                "beta": _num(data.get("Beta")),
+                "sector": _str(data.get("Sector")),
+                "industry": _str(data.get("Industry")),
+                "country": _str(data.get("Country")),
+                "debt_to_equity": _num(data.get("Debt/Eq")),
+                "roe": _pct(data.get("ROE")),
+                "roa": _pct(data.get("ROA")),
+                "profit_margin": _pct(data.get("Profit Margin")),
+                "operating_margin": _pct(data.get("Oper. Margin")),
+                "current_ratio": _num(data.get("Current Ratio")),
+                "52w_high": _num(data.get("52W High")),
+                "52w_low": _num(data.get("52W Low")),
             }
         except Exception as e:
             logger.warning("Finviz get_fundamentals failed for %s: %s", ticker, e)

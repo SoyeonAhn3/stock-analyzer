@@ -63,46 +63,59 @@ class YFinanceClient:
             return None
 
     def get_fundamentals(self, ticker: str) -> Optional[dict[str, Any]]:
-        """기업 재무 지표 조회."""
+        """기업 재무 지표 조회. fast_info(클라우드 동작) + stock.info(로컬 보조)."""
         try:
             self._call_count += 1
             stock = yf.Ticker(ticker)
-            info = stock.info
-            if not info or "symbol" not in info:
-                return None
-            # 적자 기업은 yfinance가 trailingPE=null로 반환 → price/eps로 직접 계산
-            pe_ratio = info.get("trailingPE")
-            eps = info.get("trailingEps")
-            if pe_ratio is None and eps:
-                price = info.get("currentPrice") or info.get("regularMarketPrice")
-                if price:
-                    pe_ratio = round(price / eps, 4)
-            return {
+
+            # fast_info — 경량 JSON API, 클라우드에서도 동작
+            fi = stock.fast_info
+            result = {
                 "source": "yfinance",
                 "ticker": ticker,
-                "market_cap": info.get("marketCap"),
-                "pe_ratio": pe_ratio,
-                "forward_pe": info.get("forwardPE"),
-                "eps": eps,
-                "peg_ratio": info.get("pegRatio"),
-                "dividend_yield": info.get("dividendYield"),
-                "debt_to_equity": info.get("debtToEquity"),
-                "52w_high": info.get("fiftyTwoWeekHigh"),
-                "52w_low": info.get("fiftyTwoWeekLow"),
-                "sector": info.get("sector"),
-                "industry": info.get("industry"),
-                "employees": info.get("fullTimeEmployees"),
-                "city": info.get("city"),
-                "country": info.get("country"),
-                "roe": info.get("returnOnEquity"),
-                "roa": info.get("returnOnAssets"),
-                "profit_margin": info.get("profitMargins"),
-                "operating_margin": info.get("operatingMargins"),
-                "free_cash_flow": info.get("freeCashflow"),
-                "beta": info.get("beta"),
-                "current_ratio": info.get("currentRatio"),
-                "revenue": info.get("totalRevenue"),
+                "market_cap": fi.market_cap,
+                "52w_high": fi.year_high,
+                "52w_low": fi.year_low,
             }
+
+            # stock.info — 웹 스크래핑, 클라우드 IP에서 차단될 수 있음
+            try:
+                info = stock.info
+                if info and "symbol" in info:
+                    pe_ratio = info.get("trailingPE")
+                    eps = info.get("trailingEps")
+                    if pe_ratio is None and eps:
+                        price = info.get("currentPrice") or info.get("regularMarketPrice")
+                        if price:
+                            pe_ratio = round(price / eps, 4)
+                    info_data = {
+                        "pe_ratio": pe_ratio,
+                        "forward_pe": info.get("forwardPE"),
+                        "eps": eps,
+                        "peg_ratio": info.get("pegRatio"),
+                        "dividend_yield": info.get("dividendYield"),
+                        "debt_to_equity": info.get("debtToEquity"),
+                        "sector": info.get("sector"),
+                        "industry": info.get("industry"),
+                        "employees": info.get("fullTimeEmployees"),
+                        "city": info.get("city"),
+                        "country": info.get("country"),
+                        "roe": info.get("returnOnEquity"),
+                        "roa": info.get("returnOnAssets"),
+                        "profit_margin": info.get("profitMargins"),
+                        "operating_margin": info.get("operatingMargins"),
+                        "free_cash_flow": info.get("freeCashflow"),
+                        "beta": info.get("beta"),
+                        "current_ratio": info.get("currentRatio"),
+                        "revenue": info.get("totalRevenue"),
+                    }
+                    for key, val in info_data.items():
+                        if val is not None:
+                            result[key] = val
+            except Exception as e:
+                logger.info("yfinance stock.info unavailable for %s (expected on cloud): %s", ticker, e)
+
+            return result
         except Exception as e:
             logger.warning("yfinance get_fundamentals failed for %s: %s", ticker, e)
             return None
