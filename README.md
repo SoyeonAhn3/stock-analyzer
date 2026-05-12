@@ -14,6 +14,12 @@ Stock research is fragmented across dozens of platforms, and interpreting raw fi
 
 https://github.com/user-attachments/assets/42a6e030-33c8-4f04-b49e-dd72c07ae4ab
 
+## Manual
+
+| Language | Link |
+|---|---|
+| English | [User Manual](./manuals/20260512_QuantAI_Manual.md) |
+
 ## Table of Contents
 
 - [How It Works](#how-it-works)

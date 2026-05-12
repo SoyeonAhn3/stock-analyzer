@@ -14,6 +14,12 @@
 
 https://github.com/user-attachments/assets/42a6e030-33c8-4f04-b49e-dd72c07ae4ab
 
+## Manual
+
+| Language | Link |
+|---|---|
+| English | [User Manual](./manuals/20260512_QuantAI_Manual.md) |
+
 ## 목차
 
 - [동작 흐름](#동작-흐름)
