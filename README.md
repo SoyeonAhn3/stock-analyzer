@@ -207,7 +207,7 @@ stock-analyzer/
 │       └── types/              # API response types
 │
 ├── tests/                      # pytest test suite
-├── Phase/                      # Phase development docs (13 phases)
+├── Phase/                      # Phase development docs (14 phases, incl. 13.5)
 ├── utils/                      # Shared utilities
 ├── config/                     # Configuration files
 ├── requirements.txt            # Python dependencies
@@ -232,7 +232,7 @@ Tests cover API integration (real API calls), data processing, and AI agent pipe
 
 | Document | Path | Description |
 |---|---|---|
-| Phase docs (1-13) | `Phase/Phase*.md` | Detailed development log per phase |
+| Phase docs (1-14) | `Phase/Phase*.md` | Detailed development log per phase (incl. 13.5) |
 | Design spec | `pre-requirement/design-spec.md` | Color tokens, layout, theme system |
 | Portfolio spec | `pre-requirement/portfolio-design-spec.md` | Portfolio feature design |
 | Feature spec | `pre-requirement/draft.txt` | Original feature specification |
@@ -268,6 +268,7 @@ Tests cover API integration (real API calls), data processing, and AI agent pipe
 | 11 | Code Quality | ✅ Done | API key masking + singletons + parallelization |
 | 12 | UI/UX + Mobile Optimization | ✅ Done | Mobile responsive + bottom nav + touch UX |
 | 13 | Portfolio | ✅ Done | Holdings tracking + AI portfolio analysis |
+| 13.5 | Portfolio Authentication | 🔲 Planned | Code+PIN auth gate + server-side storage |
 
 ## Limitations
 

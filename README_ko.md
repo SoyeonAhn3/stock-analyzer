@@ -200,7 +200,7 @@ stock-analyzer/
 │       └── types/              # API 응답 TypeScript 타입
 │
 ├── tests/                      # pytest 테스트 모음
-├── Phase/                      # Phase 개발 문서 (12개 Phase)
+├── Phase/                      # Phase 개발 문서 (14개 Phase, 13.5 포함)
 ├── utils/                      # 공용 유틸리티
 ├── config/                     # 설정 파일
 ├── requirements.txt            # Python 의존성
@@ -225,7 +225,7 @@ pytest tests/test_phase3_ai_analysis.py
 
 | 문서 | 경로 | 설명 |
 |---|---|---|
-| Phase 문서 (1-12) | `Phase/Phase*.md` | Phase별 상세 개발 기록 |
+| Phase 문서 (1-14) | `Phase/Phase*.md` | Phase별 상세 개발 기록 (13.5 포함) |
 | 디자인 스펙 | `pre-requirement/design-spec.md` | 컬러 토큰, 레이아웃, 테마 시스템 |
 | 기능 기술서 | `pre-requirement/draft.txt` | 전체 기능 상세 설계 |
 | 데이터 흐름 | `pre-requirement/data_flow.txt` | 엔드투엔드 데이터 흐름도 |
@@ -252,13 +252,15 @@ pytest tests/test_phase3_ai_analysis.py
 | 8 | QuickLook + AI 분석 화면 | ✅ 완료 | 캔들스틱 차트 + 기술 지표 카드 |
 | 9 | 나머지 화면 + 최종 통합 | ✅ 완료 | Market Overview + Sector + Compare + Guide |
 
-### 개선 (Phase 10-12)
+### 개선 (Phase 10-13.5)
 
 | Phase | 이름 | 상태 | 핵심 산출물 |
 |:---:|---|:---:|---|
 | 10 | UX + 데이터 영속화 | ✅ 완료 | 검색 자동완성 + Watchlist UI + SQLite + 알림 |
 | 11 | 코드 품질 | ✅ 완료 | API 키 마스킹 + 싱글턴 + 병렬화 |
-| 12 | UI/UX + 모바일 최적화 | 📋 예정 | 모바일 반응형 + 바텀 네비 + 터치 UX |
+| 12 | UI/UX + 모바일 최적화 | ✅ 완료 | 모바일 반응형 + 바텀 네비 + 터치 UX |
+| 13 | Portfolio | ✅ 완료 | 보유 종목 관리 + AI 포트폴리오 분석 |
+| 13.5 | 포트폴리오 인증 | 🔲 예정 | 코드+PIN 인증 게이트 + 서버 측 저장 |
 
 ## 한계점
 
