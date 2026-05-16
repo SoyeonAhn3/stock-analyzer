@@ -1,15 +1,15 @@
-# Phase 14 — Internationalization (i18n) `🔲 Not Started`
+# Phase 15 — Internationalization (i18n) `🔲 Not Started`
 
 > KO/EN bilingual support — full UI + AI analysis results + guide content language switching
 
 **Status**: 🔲 Not Started
-**Prerequisites**: Phase 13 completed (Portfolio)
+**Prerequisites**: Phase 13 completed (Portfolio), Phase 14 completed (FreeTrial)
 
 ---
 
 ## Overview
 
-The app currently has hardcoded Korean strings in the frontend UI and AI Agent system prompts. This Phase introduces react-i18next-based i18n infrastructure with a global EN/KO toggle button (always visible at top-right), so that UI text, AI analysis results, and Guide educational content all render in the selected language.
+The app currently has hardcoded Korean strings in the frontend UI and AI Agent system prompts. Phase 14 (FreeTrial) also introduced new UI components (TrialBanner, EmailRegistrationModal, TrialLimitModal) with hardcoded strings. This Phase introduces react-i18next-based i18n infrastructure with a global EN/KO toggle button (always visible at top-right), so that UI text, AI analysis results, trial UI, and Guide educational content all render in the selected language.
 
 **Core principle**: Preserve all existing Korean functionality while adding English. Language preference is stored in localStorage and persists across visits.
 
@@ -118,7 +118,7 @@ Mobile/Tablet (inside existing header bar):
 
 ### Purpose
 
-Replace ~47 hardcoded Korean strings across 6 frontend files with `t('key')` calls.
+Replace ~60 hardcoded Korean/English strings across 9 frontend files with `t('key')` calls. Includes Phase 14 (FreeTrial) components.
 
 ### Implementation Files
 
@@ -126,6 +126,9 @@ Replace ~47 hardcoded Korean strings across 6 frontend files with `t('key')` cal
 |------|---------------|---------|
 | `components/portfolio/PortfolioAnalysis.tsx` | ~31 | Concentration, performance, risk, style analysis labels |
 | `pages/Settings.tsx` | ~9 | Sync instructions, success/failure messages |
+| `components/TrialBanner.tsx` | ~4 | "FREE TRIAL", remaining count, "Get +3 more with email", "Email verified" |
+| `components/EmailRegistrationModal.tsx` | ~6 | "Get 3 More Free Analyses", "Send Code", "Enter Verification Code", "Verify", "Resend code", error messages |
+| `components/TrialLimitModal.tsx` | ~5 | "Free Trial Limit Reached", "Register Email", "Maybe Later", "Premium plans coming soon", "Got it" |
 | `pages/Portfolio.tsx` | ~3 | Empty state text, minimum stock count notice |
 | `components/portfolio/AddStockModal.tsx` | ~2 | Validation error, placeholder |
 | `components/AiAnalysisInline.tsx` | ~1 | Re-analysis confirmation dialog |
@@ -276,7 +279,7 @@ async def get_guide(category: str, request: Request):
 
 ### Purpose
 
-Translate ~10 user-facing error/status messages in backend routers. Internal logging remains unchanged.
+Translate ~16 user-facing error/status messages in backend routers, including Phase 14 trial messages. Internal logging remains unchanged.
 
 ### Implementation Files
 
@@ -285,6 +288,7 @@ Translate ~10 user-facing error/status messages in backend routers. Internal log
 | `backend/messages.py` | **New** — bilingual message dictionary |
 | `backend/routers/portfolio.py` | Error messages → `msg()` calls |
 | `backend/routers/sync.py` | Error messages → `msg()` calls |
+| `backend/routers/trial.py` | Trial error/status messages → `msg()` calls |
 
 ### Core Structure
 
@@ -306,6 +310,31 @@ MESSAGES = {
     "incorrect_pin": {
         "ko": "PIN이 올바르지 않습니다.",
         "en": "Incorrect PIN.",
+    },
+    # Phase 14 (FreeTrial) messages
+    "trial_limit_reached": {
+        "ko": "무료 체험 한도에 도달했습니다.",
+        "en": "Free trial limit reached.",
+    },
+    "email_already_registered": {
+        "ko": "이 이메일은 이미 등록되어 있습니다.",
+        "en": "This email is already registered.",
+    },
+    "verification_code_sent": {
+        "ko": "인증 코드가 발송되었습니다.",
+        "en": "Verification code sent.",
+    },
+    "wrong_verification_code": {
+        "ko": "인증 코드가 올바르지 않습니다.",
+        "en": "Incorrect verification code.",
+    },
+    "verification_code_expired": {
+        "ko": "인증 코드가 만료되었습니다.",
+        "en": "Verification code expired.",
+    },
+    "too_many_attempts": {
+        "ko": "시도 횟수를 초과했습니다.",
+        "en": "Too many attempts.",
     },
 }
 
@@ -345,7 +374,7 @@ Verify all language switching works correctly across the entire app.
 
 ---
 
-## Phase 14 Skill Classification
+## Phase 15 Skill Classification
 
 | Module | Classification | Reason |
 |--------|---------------|--------|
@@ -363,6 +392,7 @@ Verify all language switching works correctly across the entire app.
 | Dependency | Required By | Status |
 |-----------|-------------|--------|
 | Phase 13 (Portfolio) completed | All steps | ✅ |
+| Phase 14 (FreeTrial) completed | Step 2, 5 | 🔲 |
 | npm packages: i18next, react-i18next, i18next-browser-languagedetector | Step 1 | Install needed |
 | Existing Agent SYSTEM_PROMPTs in Korean | Step 3 | ✅ Available |
 | Existing Guide JSON files in Korean | Step 4 | ✅ Available |
@@ -398,23 +428,24 @@ Step 6 (Integration Test) ← requires all above
 
 | Date | Description |
 |------|-------------|
-| 2026-05-11 | Phase 14 document created |
+| 2026-05-11 | Phase 15 document created |
+| 2026-05-16 | Renumbered from Phase 14 → Phase 15 (swapped with FreeTrial). Added Phase 14 trial component translations to Sections 2, 5 |
 
 ---
 ---
 
-# Phase 14 — 다국어 지원 (i18n) `🔲 미시작`
+# Phase 15 — 다국어 지원 (i18n) `🔲 미시작`
 
 > 한/영 동시 지원 — UI 전체 + AI 분석 결과 + 교육 콘텐츠 언어 전환
 
 **상태**: 🔲 미시작
-**선행 조건**: Phase 13 완료 (Portfolio)
+**선행 조건**: Phase 13 완료 (Portfolio), Phase 14 완료 (FreeTrial)
 
 ---
 
 ## 개요
 
-현재 앱은 프론트엔드 UI와 AI Agent 시스템 프롬프트에 한국어가 하드코딩되어 있다. react-i18next 기반 다국어 인프라를 구축하고, 앱 우상단에 항상 보이는 EN/KO 토글 버튼으로 UI 텍스트 + AI 분석 결과 + Guide 교육 콘텐츠를 선택 언어로 표시한다.
+현재 앱은 프론트엔드 UI와 AI Agent 시스템 프롬프트에 한국어가 하드코딩되어 있다. Phase 14 (FreeTrial)에서 추가된 UI 컴포넌트(TrialBanner, EmailRegistrationModal, TrialLimitModal)에도 하드코딩된 문자열이 있다. react-i18next 기반 다국어 인프라를 구축하고, 앱 우상단에 항상 보이는 EN/KO 토글 버튼으로 UI 텍스트 + AI 분석 결과 + 무료체험 UI + Guide 교육 콘텐츠를 선택 언어로 표시한다.
 
 **핵심 원칙**: 기존 한국어 기능은 그대로 유지하면서 영어를 추가한다. 언어 설정은 localStorage에 저장하여 재방문 시 유지.
 
@@ -523,14 +554,17 @@ export default i18n;
 
 ### 목적
 
-6개 프론트엔드 파일의 하드코딩된 한국어 문자열 ~47개를 `t('key')` 호출로 교체한다.
+9개 프론트엔드 파일의 하드코딩된 한국어/영어 문자열 ~60개를 `t('key')` 호출로 교체한다. Phase 14 (FreeTrial) 컴포넌트 포함.
 
 ### 구현 파일
 
-| 파일 | 한국어 문자열 수 | 주요 내용 |
-|------|----------------|----------|
+| 파일 | 문자열 수 | 주요 내용 |
+|------|----------|----------|
 | `components/portfolio/PortfolioAnalysis.tsx` | ~31개 | 집중도, 성과, 위험, 스타일 분석 라벨 |
 | `pages/Settings.tsx` | ~9개 | 동기화 안내 문구, 성공/실패 메시지 |
+| `components/TrialBanner.tsx` | ~4개 | "FREE TRIAL", 잔여 횟수, "이메일 등록하면 +3회", "Email verified" |
+| `components/EmailRegistrationModal.tsx` | ~6개 | "Get 3 More Free Analyses", "Send Code", "인증코드 입력", "Verify", "코드 재발송", 에러 메시지 |
+| `components/TrialLimitModal.tsx` | ~5개 | "Free Trial Limit Reached", "이메일 등록", "나중에", "프리미엄 준비 중", "확인" |
 | `pages/Portfolio.tsx` | ~3개 | 빈 상태 안내, 종목 수 부족 안내 |
 | `components/portfolio/AddStockModal.tsx` | ~2개 | 유효성 에러, placeholder |
 | `components/AiAnalysisInline.tsx` | ~1개 | 재분석 확인 다이얼로그 |
@@ -681,7 +715,7 @@ async def get_guide(category: str, request: Request):
 
 ### 목적
 
-사용자에게 노출되는 에러/상태 메시지 ~10개를 다국어 처리한다. 내부 로깅은 변경하지 않는다.
+사용자에게 노출되는 에러/상태 메시지 ~16개를 다국어 처리한다. Phase 14 트라이얼 메시지 포함. 내부 로깅은 변경하지 않는다.
 
 ### 구현 파일
 
@@ -690,6 +724,7 @@ async def get_guide(category: str, request: Request):
 | `backend/messages.py` | **신규** — 다국어 메시지 딕셔너리 |
 | `backend/routers/portfolio.py` | 에러 메시지 → `msg()` 호출 |
 | `backend/routers/sync.py` | 에러 메시지 → `msg()` 호출 |
+| `backend/routers/trial.py` | 트라이얼 에러/상태 메시지 → `msg()` 호출 |
 
 ### 핵심 구조
 
@@ -711,6 +746,31 @@ MESSAGES = {
     "incorrect_pin": {
         "ko": "PIN이 올바르지 않습니다.",
         "en": "Incorrect PIN.",
+    },
+    # Phase 14 (FreeTrial) 메시지
+    "trial_limit_reached": {
+        "ko": "무료 체험 한도에 도달했습니다.",
+        "en": "Free trial limit reached.",
+    },
+    "email_already_registered": {
+        "ko": "이 이메일은 이미 등록되어 있습니다.",
+        "en": "This email is already registered.",
+    },
+    "verification_code_sent": {
+        "ko": "인증 코드가 발송되었습니다.",
+        "en": "Verification code sent.",
+    },
+    "wrong_verification_code": {
+        "ko": "인증 코드가 올바르지 않습니다.",
+        "en": "Incorrect verification code.",
+    },
+    "verification_code_expired": {
+        "ko": "인증 코드가 만료되었습니다.",
+        "en": "Verification code expired.",
+    },
+    "too_many_attempts": {
+        "ko": "시도 횟수를 초과했습니다.",
+        "en": "Too many attempts.",
     },
 }
 
@@ -750,7 +810,7 @@ def msg(key: str, lang: str = "ko") -> str:
 
 ---
 
-## Phase 14 스킬 범용/전용 분류
+## Phase 15 스킬 범용/전용 분류
 
 | 모듈 | 분류 | 이유 |
 |------|------|------|
@@ -768,6 +828,7 @@ def msg(key: str, lang: str = "ko") -> str:
 | 의존성 | 필요 Step | 상태 |
 |--------|----------|------|
 | Phase 13 (Portfolio) 완료 | 전체 | ✅ |
+| Phase 14 (FreeTrial) 완료 | Step 2, 5 | 🔲 |
 | npm 패키지: i18next, react-i18next, i18next-browser-languagedetector | Step 1 | 설치 필요 |
 | 기존 Agent SYSTEM_PROMPT (한국어) | Step 3 | ✅ 존재 |
 | 기존 Guide JSON 파일 (한국어) | Step 4 | ✅ 존재 |
@@ -803,4 +864,5 @@ Step 6 (통합 테스트)   ← 전체 완료 후
 
 | 날짜 | 내용 |
 |------|------|
-| 2026-05-11 | Phase 14 문서 최초 작성 |
+| 2026-05-11 | Phase 15 문서 최초 작성 |
+| 2026-05-16 | Phase 14 → Phase 15로 번호 변경 (FreeTrial과 교체). Phase 14 트라이얼 컴포넌트 번역 항목 섹션 2, 5에 추가 |
