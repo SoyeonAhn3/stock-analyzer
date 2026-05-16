@@ -15,7 +15,7 @@ from agents import cross_validation, analyst_agent
 logger = logging.getLogger(__name__)
 
 # Agent 타임아웃 (초)
-AGENT_TIMEOUT = 90
+AGENT_TIMEOUT = 30
 AGENT_RETRY_DELAY = 15
 
 
@@ -53,7 +53,7 @@ async def run_analysis(
     )
     errors.extend(agent_errors)
 
-    success_count = sum(1 for s in agent_status.values() if s in ("success", "partial"))
+    success_count = list(agent_status.values()).count("success")
     logger.info("Agent 결과: %d/3 성공 %s", success_count, agent_status)
 
     # ─── 2단계: Graceful Degradation 판정 ───
@@ -62,7 +62,7 @@ async def run_analysis(
         return {
             "ticker": ticker,
             "quick_look_data": quick_look_data,
-            "agent_results": agent_results,
+            "agent_results": {},
             "agent_status": agent_status,
             "cross_validation": None,
             "analyst": None,
@@ -133,10 +133,7 @@ async def _run_parallel_agents(
             logger.error("Agent '%s' 실패: %s", name, result)
         else:
             agent_results[name] = result
-            status = result.get("status", "success")
-            agent_status[name] = status
-            if status == "error":
-                errors.append(f"{name}: {result.get('summary', 'unknown error')}")
+            agent_status[name] = "success"
 
     return agent_results, agent_status, errors
 

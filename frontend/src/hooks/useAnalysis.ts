@@ -11,13 +11,10 @@ export function useAnalysis(ticker: string | undefined) {
   const [cachedAt, setCachedAt] = useState<string | null>(null);
 
   const applyResponse = useCallback((data: any) => {
-    const analyst = data?.analyst ?? null;
+    const analyst = data?.analyst ?? data;
     setResult(analyst);
-    if (data?.agent_results && Object.keys(data.agent_results).length > 0) {
+    if (data?.agent_results) {
       setFullResponse(data as FullAnalysisResponse);
-    }
-    if (!analyst && data?.errors?.length) {
-      setError(data.errors.join('; '));
     }
     setCachedAt(data?.cached_at ?? null);
   }, []);
