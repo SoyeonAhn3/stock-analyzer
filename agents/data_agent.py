@@ -83,7 +83,11 @@ async def run(ticker: str, quick_look_data: dict) -> dict[str, Any]:
             "summary": result["raw_output"][:500],
         }
 
-    raise RuntimeError(f"Data Agent 실패: {result.get('error', 'unknown')}")
+    return {
+        "agent": "data",
+        "status": "error",
+        "summary": f"분석 실패: {result.get('error', 'unknown')}",
+    }
 
 
 def _build_message(ticker: str, quick_look_data: dict) -> str:

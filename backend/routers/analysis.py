@@ -48,8 +48,9 @@ async def analyze(ticker: str, force: bool = False):
     # AI 분석 실행 (async)
     result = await run_analysis(quick_look_data)
 
-    # 결과 캐시 저장
-    save_analysis(ticker, result)
+    # 성공한 Agent가 있을 때만 캐시 저장 (전체 실패 결과는 캐시하지 않음)
+    if result.get("agent_results"):
+        save_analysis(ticker, result)
 
     return result
 
