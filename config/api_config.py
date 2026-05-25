@@ -1,9 +1,52 @@
 """API 설정 모듈 — 키 로딩, 엔드포인트, 타임아웃, 일일 한도."""
 
 import os
+import ssl
+import urllib3
+import requests as _requests
+
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# ---------------------------------------------------------------------------
+# SSL — 사내 프록시(자체 서명 인증서) 환경에서 SSL 검증 비활성화
+# ---------------------------------------------------------------------------
+SSL_VERIFY = os.getenv("SSL_VERIFY", "false").lower() in ("true", "1", "yes")
+
+if not SSL_VERIFY:
+    # requests / urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    # curl_cffi (yfinance) — 강제 덮어쓰기 (setdefault는 기존 값 유지)
+    os.environ["CURL_CA_BUNDLE"] = ""
+    os.environ["REQUESTS_CA_BUNDLE"] = ""
+
+    # stdlib ssl
+    ssl._create_default_https_context = ssl._create_unverified_context
+
+    # requests.Session 글로벌 패치 — finvizfinance 등 서드파티 라이브러리 대응
+    _orig_session_init = _requests.Session.__init__
+
+    def _patched_session_init(self, *args, **kwargs):
+        _orig_session_init(self, *args, **kwargs)
+        self.verify = False
+
+    _requests.Session.__init__ = _patched_session_init
+
+    # curl_cffi 세션 패치 — yfinance 대응
+    try:
+        import curl_cffi.requests as _curl_requests
+
+        _orig_curl_init = _curl_requests.Session.__init__
+
+        def _patched_curl_init(self, *args, **kwargs):
+            kwargs.setdefault("verify", False)
+            _orig_curl_init(self, *args, **kwargs)
+
+        _curl_requests.Session.__init__ = _patched_curl_init
+    except ImportError:
+        pass
 
 # ---------------------------------------------------------------------------
 # API Keys

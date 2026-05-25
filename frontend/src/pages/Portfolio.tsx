@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../theme/ThemeProvider';
-import { FONT_SIZES, SPACING, RADIUS } from '../theme/tokens';
+import { FONTS, FONT_SIZES, SPACING, RADIUS } from '../theme/tokens';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import { usePortfolio } from '../hooks/usePortfolio';
+import PortfolioLoginGate from '../components/portfolio/PortfolioLoginGate';
 import PortfolioSummary from '../components/portfolio/PortfolioSummary';
 import PortfolioCharts from '../components/portfolio/PortfolioCharts';
 import HoldingCard from '../components/portfolio/HoldingCard';
@@ -12,8 +13,31 @@ import LoadingSkeleton, { SkeletonCard } from '../components/LoadingSkeleton';
 import ErrorBanner from '../components/ErrorBanner';
 import type { AnalysisResult, Holding } from '../services/portfolioApi';
 import { fetchAnalysis } from '../services/portfolioApi';
+import { loadSession, saveSession, clearSession } from '../services/syncApi';
 
 export default function Portfolio() {
+  const [session, setSession] = useState(loadSession);
+
+  const handleLogin = useCallback((code: string, pin: string) => {
+    saveSession(code, pin);
+    setSession({ code, pin });
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    clearSession();
+    setSession(null);
+  }, []);
+
+  if (!session) {
+    return <PortfolioLoginGate onLogin={handleLogin} />;
+  }
+
+  return (
+    <PortfolioContent code={session.code} pin={session.pin} onLogout={handleLogout} />
+  );
+}
+
+function PortfolioContent({ code, pin, onLogout }: { code: string; pin: string; onLogout: () => void }) {
   const { theme } = useTheme();
   const bp = useBreakpoint();
   const isMobile = bp === 'mobile';
@@ -24,11 +48,12 @@ export default function Portfolio() {
     summary,
     loading,
     error,
+    initialLoaded,
     addHolding,
     updateHolding,
     removeHolding,
     refreshQuotes,
-  } = usePortfolio();
+  } = usePortfolio(code, pin);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingHolding, setEditingHolding] = useState<Holding | null>(null);
@@ -78,6 +103,18 @@ export default function Portfolio() {
       onClose={() => setModalOpen(false)}
     />
   );
+
+  // ── 초기 로딩 ──
+  if (!initialLoaded) {
+    return (
+      <div style={{ maxWidth: 800, margin: '0 auto' }}>
+        <h1 style={{ color: theme.text_primary, fontSize: FONT_SIZES['2xl'], fontWeight: 700, marginBottom: SPACING.lg }}>
+          Portfolio
+        </h1>
+        <LoadingSkeleton height="200px" />
+      </div>
+    );
+  }
 
   // ── 빈 상태 ──
   if (holdings.length === 0) {
@@ -136,9 +173,22 @@ export default function Portfolio() {
           gap: SPACING.sm,
         }}
       >
-        <h1 style={{ color: theme.text_primary, fontSize: FONT_SIZES['2xl'], fontWeight: 700, margin: 0 }}>
-          Portfolio
-        </h1>
+        <div>
+          <h1 style={{ color: theme.text_primary, fontSize: FONT_SIZES['2xl'], fontWeight: 700, margin: 0 }}>
+            Portfolio
+          </h1>
+          <div
+            style={{
+              color: theme.text_muted,
+              fontSize: FONT_SIZES.xs,
+              fontFamily: FONTS.numeric,
+              letterSpacing: '1px',
+              marginTop: SPACING.xs,
+            }}
+          >
+            {code}
+          </div>
+        </div>
         <div style={{ display: 'flex', gap: SPACING.sm }}>
           <button
             onClick={refreshQuotes}
@@ -168,6 +218,20 @@ export default function Portfolio() {
             }}
           >
             + Add Stock
+          </button>
+          <button
+            onClick={onLogout}
+            style={{
+              padding: `${SPACING.xs} ${SPACING.sm}`,
+              fontSize: FONT_SIZES.sm,
+              color: theme.text_muted,
+              border: `1px solid ${theme.border}`,
+              borderRadius: RADIUS.button,
+              background: 'transparent',
+              cursor: 'pointer',
+            }}
+          >
+            Logout
           </button>
         </div>
       </div>
@@ -261,7 +325,7 @@ export default function Portfolio() {
               </div>
               <button
                 onClick={handleAnalyze}
-                disabled={analysisLoading || holdings.length < 1}
+                disabled={analysisLoading || holdings.length < 2}
                 style={{
                   padding: `${SPACING.sm} ${SPACING.xl}`,
                   fontSize: FONT_SIZES.md,
@@ -270,8 +334,8 @@ export default function Portfolio() {
                   background: theme.accent,
                   border: 'none',
                   borderRadius: RADIUS.button,
-                  cursor: holdings.length < 1 ? 'not-allowed' : 'pointer',
-                  opacity: analysisLoading || holdings.length < 1 ? 0.5 : 1,
+                  cursor: holdings.length < 2 ? 'not-allowed' : 'pointer',
+                  opacity: analysisLoading || holdings.length < 2 ? 0.5 : 1,
                 }}
               >
                 {analysisLoading ? 'Analyzing...' : 'Analyze My Portfolio'}

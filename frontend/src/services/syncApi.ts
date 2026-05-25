@@ -1,27 +1,35 @@
 import { API_BASE } from '../config';
 
-const LS_SYNC_KEY = 'portfolio_sync';
+const SESSION_KEY = 'portfolio_session';
+const REMEMBER_KEY = 'portfolio_remember';
 
-export interface SyncState {
-  code: string;
-  pin: string;
-  last_synced: string | null;
+export function saveSession(code: string, pin: string): void {
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ code, pin }));
 }
 
-export function loadSyncState(): SyncState | null {
+export function loadSession(): { code: string; pin: string } | null {
   try {
-    const raw = localStorage.getItem(LS_SYNC_KEY);
+    const raw = sessionStorage.getItem(SESSION_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
 
-export function saveSyncState(state: SyncState | null) {
-  if (state) {
-    localStorage.setItem(LS_SYNC_KEY, JSON.stringify(state));
-  } else {
-    localStorage.removeItem(LS_SYNC_KEY);
+export function clearSession(): void {
+  sessionStorage.removeItem(SESSION_KEY);
+}
+
+export function saveRememberedCode(code: string): void {
+  localStorage.setItem(REMEMBER_KEY, JSON.stringify({ code }));
+}
+
+export function loadRememberedCode(): string | null {
+  try {
+    const raw = localStorage.getItem(REMEMBER_KEY);
+    return raw ? JSON.parse(raw).code : null;
+  } catch {
+    return null;
   }
 }
 

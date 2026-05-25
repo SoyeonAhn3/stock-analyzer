@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 import requests
 
-from config.api_config import TWELVEDATA_API_KEY, TWELVEDATA_BASE_URL, API_TIMEOUT
+from config.api_config import TWELVEDATA_API_KEY, TWELVEDATA_BASE_URL, API_TIMEOUT, SSL_VERIFY
 from data.sanitize import mask_sensitive
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ class TwelveDataClient:
             self._call_count += 1
             params["apikey"] = TWELVEDATA_API_KEY
             url = f"{TWELVEDATA_BASE_URL}/{endpoint}"
-            resp = requests.get(url, params=params, timeout=API_TIMEOUT)
+            resp = requests.get(url, params=params, timeout=API_TIMEOUT, verify=SSL_VERIFY)
             resp.raise_for_status()
             data = resp.json()
             if "code" in data and data["code"] != 200:

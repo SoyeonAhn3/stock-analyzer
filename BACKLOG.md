@@ -26,6 +26,16 @@
 
 ---
 
+## V2 Backlog
+
+V1 안정화 이후 진행할 대규모 개선 항목.
+
+| # | 기능 | 우선순위 | 상태 | 비고 |
+|---|------|---------|------|------|
+| V2-1 | 외부 DB 마이그레이션 (SQLite → Supabase) | 상 | 미착수 | Phase 13.5 선행 필요 |
+
+---
+
 ## 1. AI 재분석 버튼
 
 ### 배경
@@ -994,3 +1004,83 @@ function safeRender(val: any): string {
 | 파일 | 변경 내용 |
 |------|----------|
 | `frontend/src/pages/CompareMode.tsx` | rankings 섹션 렌더링 — `safeRender()` → 배열 전용 순위 UI |
+
+---
+
+## V2-1. 외부 DB 마이그레이션 (SQLite → Supabase)
+
+### 배경
+
+현재 모든 서버 데이터(포트폴리오 동기화, watchlist, 분석 캐시 등)가 Render 서버 내 SQLite 파일(`data/app.db`)에 저장된다. Render 무료 플랜은 **Ephemeral Filesystem**을 사용하므로 서버 재시작 시 SQLite 파일이 초기화되어 사용자 데이터가 유실될 수 있다.
+
+Phase 13.5(포트폴리오 인증)를 구현하면 서버 측 데이터 의존도가 더 높아지므로, 안정적인 외부 DB로의 마이그레이션이 필수적이다.
+
+### 현재 문제점
+
+| 문제 | 영향 |
+|------|------|
+| Render 서버 재시작 시 SQLite 초기화 | 포트폴리오 동기화 데이터 전체 유실 |
+| 30분 미사용 시 서버 sleep → 재시작 | 무료 플랜 특성상 빈번하게 발생 |
+| 새 코드 배포 시 DB 초기화 | 매 배포마다 사용자 데이터 리셋 |
+| WAL 파일 동기화 불안정 | 클라우드 환경에서 `-shm`, `-wal` 파일 관리 어려움 |
+
+### 마이그레이션 대상 테이블
+
+| 테이블 | 현재 위치 | 마이그레이션 필요 | 사유 |
+|--------|----------|-----------------|------|
+| `portfolio_sync` | SQLite | **필수** | 사용자 포트폴리오 데이터 (유실 시 치명적) |
+| `watchlist` | SQLite | 선택 | localStorage 병행 가능 |
+| `analysis_cache` | SQLite | 선택 | 캐시이므로 유실 허용 가능 |
+| `price_alerts` | SQLite | 선택 | 알림 설정 보존 필요 시 |
+| `themes` | SQLite | 불필요 | config JSON에서 마이그레이션하는 정적 데이터 |
+
+### 기술 선택: Supabase
+
+| 항목 | 내용 |
+|------|------|
+| DB 엔진 | PostgreSQL (관리형) |
+| 무료 플랜 | 500MB 저장, 무제한 API 요청 |
+| 인증 | 서비스 키(anon key + service_role key) |
+| SDK | `supabase-py` (Python), `@supabase/supabase-js` (JS) |
+| 장점 | 무료 티어 충분, REST API 자동 생성, 대시보드 UI 제공 |
+
+### 구현 범위
+
+#### Step 1: Supabase 프로젝트 설정
+- Supabase 프로젝트 생성
+- `portfolio_sync` 테이블 생성 (기존 스키마 동일)
+- Row Level Security (RLS) 정책 설정
+- 환경 변수: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`
+
+#### Step 2: 백엔드 DB 레이어 교체
+- `data/database.py` — Supabase 클라이언트 초기화 추가
+- `services/sync_service.py` — SQLite 직접 쿼리 → Supabase SDK 호출로 교체
+- 기존 SQLite 로직은 폴백으로 유지 (환경 변수 없으면 SQLite 사용)
+
+#### Step 3: 기타 테이블 마이그레이션 (선택)
+- `watchlist`, `price_alerts` 등 필요 시 순차 전환
+
+#### Step 4: 배포 및 검증
+- Render 환경 변수에 Supabase 키 등록
+- 데이터 마이그레이션 스크립트 (기존 SQLite → Supabase 일회성 이관)
+- 서버 재시작 후 데이터 보존 확인
+
+### 예상 공수
+
+| Step | 작업 | 시간 |
+|------|------|------|
+| 1 | Supabase 프로젝트 + 테이블 설정 | 1h |
+| 2 | sync_service.py Supabase 전환 | 3h |
+| 3 | 기타 테이블 (선택) | 2h |
+| 4 | 배포 + 마이그레이션 + 검증 | 1h |
+| **합계** | | **7시간** |
+
+### 선행 조건
+- Phase 13.5 (포트폴리오 인증) 구현 완료
+- Supabase 계정 생성 + 프로젝트 설정
+
+### 참고
+- 현재 DB 초기화: `data/database.py`
+- Sync 서비스: `services/sync_service.py`
+- Render 배포 설정: `render.yaml`
+- 현재 SQLite 파일: `data/app.db` (~45KB)

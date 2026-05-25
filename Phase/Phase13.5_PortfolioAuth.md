@@ -1,8 +1,8 @@
-# Phase 13.5 — Portfolio Authentication System `🔲 Not Started`
+# Phase 13.5 — Portfolio Authentication System `✅ Completed`
 
 > Code+PIN based multi-user authentication for portfolio access control and server-side data storage.
 
-**Status**: 🔲 Not Started
+**Status**: ✅ Completed
 **Prerequisites**: Phase 13 (Portfolio) completed
 
 ---
@@ -19,11 +19,11 @@ This phase adds a **code + 4-digit PIN authentication gate** to the Portfolio pa
 
 | # | Module / Component | Status | Type |
 |---|---|---|---|
-| 1 | `PortfolioLoginGate.tsx` — Login/Register popup | 🔲 | frontend |
-| 2 | Session management (sessionStorage + localStorage) | 🔲 | frontend |
-| 3 | `usePortfolio` server integration | 🔲 | frontend |
-| 4 | Settings page MY ACCOUNT section | 🔲 | frontend |
-| 5 | Portfolio header code display + logout button | 🔲 | frontend |
+| 1 | `PortfolioLoginGate.tsx` — Login/Register popup | ✅ | frontend |
+| 2 | Session management (sessionStorage + localStorage) | ✅ | frontend |
+| 3 | `usePortfolio` server integration | ✅ | frontend |
+| 4 | Settings page MY ACCOUNT section | ✅ | frontend |
+| 5 | Portfolio header code display + logout button | ✅ | frontend |
 
 ---
 
@@ -417,15 +417,16 @@ Step 4 (Settings) + Step 5 (Header buttons) ← parallel, requires Step 3
 | Date | Description |
 |------|-------------|
 | 2026-05-13 | Initial creation |
+| 2026-05-25 | Implementation completed — all 5 deliverables done (PortfolioLoginGate, session management, usePortfolio server integration, Settings MY ACCOUNT, Portfolio header logout). TypeScript + Vite build passed. |
 
 ---
 ---
 
-# Phase 13.5 — 포트폴리오 사용자 인증 시스템 `🔲 미시작`
+# Phase 13.5 — 포트폴리오 사용자 인증 시스템 `✅ 완료`
 
 > 코드+PIN 기반 다중 사용자 인증으로 포트폴리오 접근 제어 및 서버 측 데이터 저장.
 
-**상태**: 🔲 미시작
+**상태**: ✅ 완료
 **선행 조건**: Phase 13 (Portfolio) 완료
 
 ---
@@ -442,11 +443,11 @@ Phase 13 Portfolio는 브라우저 localStorage에 인증 없이 데이터를 �
 
 | # | 모듈 / 컴포넌트 | 상태 | 타입 |
 |---|---|---|---|
-| 1 | `PortfolioLoginGate.tsx` — 로그인/발급 팝업 | 🔲 | frontend |
-| 2 | 세션 관리 (sessionStorage + localStorage) | 🔲 | frontend |
-| 3 | `usePortfolio` 서버 연동 | 🔲 | frontend |
-| 4 | Settings 페이지 MY ACCOUNT 섹션 | 🔲 | frontend |
-| 5 | Portfolio 헤더 코드 표시 + 로그아웃 버튼 | 🔲 | frontend |
+| 1 | `PortfolioLoginGate.tsx` — 로그인/발급 팝업 | ✅ | frontend |
+| 2 | 세션 관리 (sessionStorage + localStorage) | ✅ | frontend |
+| 3 | `usePortfolio` 서버 연동 | ✅ | frontend |
+| 4 | Settings 페이지 MY ACCOUNT 섹션 | ✅ | frontend |
+| 5 | Portfolio 헤더 코드 표시 + 로그아웃 버튼 | ✅ | frontend |
 
 ---
 
@@ -840,3 +841,4 @@ Step 4 (Settings 연동) + Step 5 (헤더 버튼) ← 병렬 가능, Step 3 필�
 | 날짜 | 내용 |
 |------|------|
 | 2026-05-13 | 최초 작성 |
+| 2026-05-25 | 구현 완료 — 5개 항목 전부 완료 (PortfolioLoginGate, 세션 관리, usePortfolio 서버 연동, Settings MY ACCOUNT, Portfolio 헤더 로그아웃). TypeScript + Vite 빌드 통과. |

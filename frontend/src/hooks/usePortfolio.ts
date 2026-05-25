@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Holding, QuoteInfo } from '../services/portfolioApi';
-import { loadHoldings, saveHoldings, fetchQuotes } from '../services/portfolioApi';
+import { fetchQuotes } from '../services/portfolioApi';
+import { pullSync, pushSync } from '../services/syncApi';
 
 interface HoldingSummary {
   ticker: string;
@@ -24,11 +25,45 @@ interface PortfolioSummary {
   worst: HoldingSummary | null;
 }
 
-export function usePortfolio() {
-  const [holdings, setHoldings] = useState<Holding[]>(loadHoldings);
+export function usePortfolio(code: string, pin: string) {
+  const [holdings, setHoldings] = useState<Holding[]>([]);
   const [quotes, setQuotes] = useState<Record<string, QuoteInfo>>({});
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [initialLoaded, setInitialLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await pullSync(code, pin);
+        if (cancelled) return;
+        const parsed = JSON.parse(result.data);
+        if (!Array.isArray(parsed)) throw new Error('Invalid portfolio data');
+        setHoldings(parsed as Holding[]);
+        setInitialLoaded(true);
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Failed to load portfolio');
+          setInitialLoaded(true);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [code, pin]);
+
+  const syncToServer = useCallback(async (nextHoldings: Holding[]) => {
+    try {
+      await pushSync(code, pin, JSON.stringify(nextHoldings));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save to server');
+    }
+  }, [code, pin]);
 
   const refreshQuotes = useCallback(async () => {
     if (holdings.length === 0) {
@@ -122,26 +157,26 @@ export function usePortfolio() {
     };
     setHoldings((prev) => {
       const next = [...prev, newHolding];
-      saveHoldings(next);
+      syncToServer(next);
       return next;
     });
-  }, []);
+  }, [syncToServer]);
 
   const updateHolding = useCallback((id: string, updates: Partial<Holding>) => {
     setHoldings((prev) => {
       const next = prev.map((h) => (h.id === id ? { ...h, ...updates } : h));
-      saveHoldings(next);
+      syncToServer(next);
       return next;
     });
-  }, []);
+  }, [syncToServer]);
 
   const removeHolding = useCallback((id: string) => {
     setHoldings((prev) => {
       const next = prev.filter((h) => h.id !== id);
-      saveHoldings(next);
+      syncToServer(next);
       return next;
     });
-  }, []);
+  }, [syncToServer]);
 
   return {
     holdings,
@@ -150,6 +185,7 @@ export function usePortfolio() {
     summary,
     loading,
     error,
+    initialLoaded,
     addHolding,
     updateHolding,
     removeHolding,

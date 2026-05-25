@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 import requests
 
-from config.api_config import FMP_API_KEY, FMP_BASE_URL, API_TIMEOUT
+from config.api_config import FMP_API_KEY, FMP_BASE_URL, API_TIMEOUT, SSL_VERIFY
 from data.sanitize import mask_sensitive
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class FMPClient:
             params = params or {}
             params["apikey"] = FMP_API_KEY
             url = f"{FMP_BASE_URL}/{endpoint}"
-            resp = requests.get(url, params=params, timeout=API_TIMEOUT)
+            resp = requests.get(url, params=params, timeout=API_TIMEOUT, verify=SSL_VERIFY)
             resp.raise_for_status()
             data = resp.json()
             if isinstance(data, dict) and "Error Message" in data:

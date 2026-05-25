@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 import requests
 
-from config.api_config import FRED_API_KEY, FRED_BASE_URL, API_TIMEOUT
+from config.api_config import FRED_API_KEY, FRED_BASE_URL, API_TIMEOUT, SSL_VERIFY
 from data.sanitize import mask_sensitive
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ class FREDClient:
                 "sort_order": "desc",
                 "limit": limit,
             }
-            resp = requests.get(f"{FRED_BASE_URL}/series/observations", params=params, timeout=API_TIMEOUT)
+            resp = requests.get(f"{FRED_BASE_URL}/series/observations", params=params, timeout=API_TIMEOUT, verify=SSL_VERIFY)
             resp.raise_for_status()
             data = resp.json()
             observations = data.get("observations", [])

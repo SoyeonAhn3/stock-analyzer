@@ -31,21 +31,6 @@ export interface AnalysisResult {
   ai_report: Record<string, unknown> | null;
 }
 
-const LS_KEY = 'portfolio_holdings';
-
-export function loadHoldings(): Holding[] {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveHoldings(holdings: Holding[]) {
-  localStorage.setItem(LS_KEY, JSON.stringify(holdings));
-}
-
 export async function fetchQuotes(tickers: string[]): Promise<Record<string, QuoteInfo>> {
   const res = await fetch(`${API_BASE}/portfolio/quotes`, {
     method: 'POST',
