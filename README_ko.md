@@ -200,7 +200,7 @@ stock-analyzer/
 │       └── types/              # API 응답 TypeScript 타입
 │
 ├── tests/                      # pytest 테스트 모음
-├── Phase/                      # Phase 개발 문서 (14개 Phase, 13.5 포함)
+├── Phase/                      # Phase 개발 문서 (15개 Phase, 13.5 포함)
 ├── utils/                      # 공용 유틸리티
 ├── config/                     # 설정 파일
 ├── requirements.txt            # Python 의존성
@@ -225,7 +225,7 @@ pytest tests/test_phase3_ai_analysis.py
 
 | 문서 | 경로 | 설명 |
 |---|---|---|
-| Phase 문서 (1-14) | `Phase/Phase*.md` | Phase별 상세 개발 기록 (13.5 포함) |
+| Phase 문서 (1-15) | `Phase/Phase*.md` | Phase별 상세 개발 기록 (13.5 포함) |
 | 디자인 스펙 | `pre-requirement/design-spec.md` | 컬러 토큰, 레이아웃, 테마 시스템 |
 | 기능 기술서 | `pre-requirement/draft.txt` | 전체 기능 상세 설계 |
 | 데이터 흐름 | `pre-requirement/data_flow.txt` | 엔드투엔드 데이터 흐름도 |
