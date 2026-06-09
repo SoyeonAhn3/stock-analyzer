@@ -51,6 +51,44 @@ CREATE TABLE IF NOT EXISTS price_alerts (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     triggered_at TIMESTAMP
 );
+
+-- Phase 14: 무료체험 크레딧 지갑 (기기당 1줄). 사용 가능 = balance - held
+CREATE TABLE IF NOT EXISTS wallets (
+    device_id TEXT PRIMARY KEY,
+    balance INTEGER DEFAULT 3,
+    held INTEGER DEFAULT 0,
+    email TEXT UNIQUE,
+    email_verified INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Phase 14: 크레딧 이동 감사 기록 (추가 전용 원장). ref_id = 멱등성 키
+CREATE TABLE IF NOT EXISTS ledger (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_id TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('grant', 'hold', 'commit', 'release', 'topup')),
+    amount INTEGER NOT NULL,
+    ref_id TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (device_id) REFERENCES wallets(device_id)
+);
+
+-- Phase 14: 이메일 인증 코드 (6자리, 10분 만료)
+CREATE TABLE IF NOT EXISTS email_verification (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_id TEXT NOT NULL,
+    email TEXT NOT NULL,
+    code TEXT NOT NULL,
+    attempts INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    FOREIGN KEY (device_id) REFERENCES wallets(device_id)
+);
+
+-- 멱등성 조회(ref_id) + 지갑별 거래 내역 조회(device_id) 가속
+CREATE INDEX IF NOT EXISTS idx_ledger_ref_id ON ledger(ref_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_device_id ON ledger(device_id);
 """
 
 DEFAULT_THEMES = {

@@ -5,6 +5,8 @@
 **Status**: 🔲 Not Started
 **Prerequisites**: Phase 13 completed (Portfolio), Phase 13.5 completed (Portfolio Auth)
 
+> **⚠️ 설계 노트 (2026-06-09 결정)**: 이 Phase는 단순 카운터가 아니라 **"크레딧 지갑 + 거래 원장 + 예약-확정(hold) 패턴"** 구조로 구현한다. 무료 6크레딧은 이 지갑의 초기 잔액으로 충전된다. **실제 결제(PG)·선불 크레딧 판매는 [`BACKLOG.md` V2-2](../BACKLOG.md)로 분리** — Phase 14에서 지은 지갑에 "충전" 동작만 얹는 형태로 설계할 것. 과금 모델: AI 분석 1회 = 1크레딧 차감(포트폴리오/개별주/다중 비교 공통), 캐시 히트 무차감.
+
 ---
 
 ## Overview
@@ -23,7 +25,7 @@ The app currently has no per-user tracking — all API endpoints are public with
 
 | # | Module | Status | Type | Est. Hours |
 |---|---|---|---|---|
-| 1 | DB Schema (trial_users + email_verification) | 🔲 | backend | 0.5h |
+| 1 | DB Schema (wallets + ledger + email_verification) | 🔲 | backend | 0.5h |
 | 2 | Email Sender (pluggable, console default) | 🔲 | backend | 0.5h |
 | 3 | Trial Service (core business logic) | 🔲 | backend | 2h |
 | 4 | Trial API Router (status, request-code, verify) | 🔲 | backend | 1h |
@@ -45,25 +47,37 @@ The app currently has no per-user tracking — all API endpoints are public with
 
 ### Purpose
 
-Add two new tables to SQLite for per-device usage tracking and email verification code management.
+Add three tables to SQLite: a per-device credit **wallet**, an append-only **ledger** (audit trail of every credit movement), and **email_verification** for code management. This is the "wallet" structure agreed on 2026-06-09 — not a single counter.
 
 ### Implementation Files
 
 | File | Change |
 |------|--------|
-| `data/database.py` | Add `trial_users` + `email_verification` tables to `CREATE_TABLES_SQL` |
+| `data/database.py` | Add `wallets` + `ledger` + `email_verification` tables to `CREATE_TABLES_SQL` |
 
 ### Schema
 
 ```sql
-CREATE TABLE IF NOT EXISTS trial_users (
+-- Per-device credit wallet (one row per device)
+CREATE TABLE IF NOT EXISTS wallets (
     device_id TEXT PRIMARY KEY,
+    balance INTEGER DEFAULT 3,        -- granted credits (anonymous starts with 3)
+    held INTEGER DEFAULT 0,           -- credits locked during in-flight analysis
     email TEXT UNIQUE,
     email_verified INTEGER DEFAULT 0,
-    usage_count INTEGER DEFAULT 0,
-    max_usage INTEGER DEFAULT 3,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Append-only audit trail of every credit movement
+CREATE TABLE IF NOT EXISTS ledger (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_id TEXT NOT NULL,
+    type TEXT NOT NULL,               -- 'grant' | 'hold' | 'commit' | 'release' | (V2: 'topup')
+    amount INTEGER NOT NULL,          -- signed delta (+3 grant, +1 hold, -1 commit, -1 release...)
+    ref_id TEXT,                      -- idempotency key (one per analysis request)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (device_id) REFERENCES wallets(device_id)
 );
 
 CREATE TABLE IF NOT EXISTS email_verification (
@@ -74,16 +88,24 @@ CREATE TABLE IF NOT EXISTS email_verification (
     attempts INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP NOT NULL,
-    FOREIGN KEY (device_id) REFERENCES trial_users(device_id)
+    FOREIGN KEY (device_id) REFERENCES wallets(device_id)
 );
 ```
 
+### Key Formula
+
+**Available credits = `balance - held`** — locked (held) credits are excluded from what can be spent. This single formula drives the gate in §5.
+
 ### Design Decisions
 
-- `usage_count` is **lifetime** (not daily) — the existing global 100/day limit in `utils/usage_tracker.py` handles daily throttling separately
-- `email UNIQUE` constraint prevents one email from being used across multiple devices for unlimited +3 bonuses
-- `max_usage` defaults to 3 (anonymous), updated to 6 on email verification
-- Uses `CREATE TABLE IF NOT EXISTS` pattern — no migration needed, tables appear on next `init_db()` call
+- Credits are **lifetime** (not daily) — independent of the global 100/day limit in `utils/usage_tracker.py`
+- **Wallet + ledger instead of one counter**: the ledger is an append-only audit trail, so "charged but got no result" disputes can be proven. Mandatory once credits become real money in V2-2 (payment)
+- `balance` + `held` enable the **reserve → commit/release (hold) pattern** (§5) — both concurrency-safe and refund-safe
+- `email UNIQUE` prevents one email earning +3 across multiple devices
+- Email verification grants **+3** (`balance += 3` via a `grant` ledger row), lifting anonymous 3 → 6
+- `ref_id` on ledger rows = **idempotency key**: a retried request with the same ref_id is never charged twice
+- `CREATE TABLE IF NOT EXISTS` — no migration needed, tables appear on next `init_db()` call
+- **Paid extension (V2-2)**: add a `topup` ledger type doing `balance += purchased`. No schema redesign — see [`BACKLOG.md` V2-2](../BACKLOG.md)
 
 ---
 
@@ -117,22 +139,25 @@ Core business logic for trial user management, usage tracking, and email verific
 
 | File | Change |
 |------|--------|
-| `services/trial_service.py` | **New** — 5 functions for trial lifecycle management |
+| `services/trial_service.py` | **New** — wallet lifecycle functions (reserve/commit/release + verification) |
 
 ### Functions
 
 | Function | Role |
 |----------|------|
-| `get_or_create_user(device_id)` | Lookup/create user. `INSERT OR IGNORE` pattern for concurrent safety |
-| `check_and_increment_usage(device_id)` | Atomic check+increment via `UPDATE ... WHERE usage_count < max_usage` |
+| `get_or_create_user(device_id)` | Lookup/create wallet. `INSERT OR IGNORE`, initial `balance=3` + `grant` ledger row |
+| `reserve_credit(device_id, ref_id)` | **Atomic hold**: `UPDATE wallets SET held = held + 1 WHERE device_id = ? AND (balance - held) >= 1`. 0 rows affected → no credit. Writes a `hold` ledger row. Idempotent: if `ref_id` is already held, returns the existing hold instead of holding again |
+| `commit_credit(device_id, ref_id)` | **On success**: `UPDATE wallets SET balance = balance - 1, held = held - 1 WHERE device_id = ?`. Writes a `commit` ledger row |
+| `release_credit(device_id, ref_id)` | **On failure (refund)**: `UPDATE wallets SET held = held - 1 WHERE device_id = ?`. Writes a `release` ledger row |
 | `request_verification(device_id, email)` | Generate 6-digit code, store in DB, send via email_sender. 10-min expiry |
-| `verify_code(device_id, email, code)` | Verify code, on success set `max_usage=6`. Max 3 wrong attempts per code |
-| `get_trial_status(device_id)` | Read-only status: usage_count, max_usage, remaining, tier |
+| `verify_code(device_id, email, code)` | Verify code; on success `balance += 3` (a `grant` ledger row) + set `email_verified=1`. Max 3 wrong attempts per code |
+| `get_status(device_id)` | Read-only status: `balance`, `held`, `available` (=balance-held), `email_verified`, tier |
 
 ### Concurrency Safety
 
-- `UPDATE trial_users SET usage_count = usage_count + 1 WHERE device_id = ? AND usage_count < max_usage` is atomic in SQLite WAL mode
-- `INSERT OR IGNORE` handles race conditions on first-time user creation
+- `UPDATE wallets SET held = held + 1 WHERE device_id = ? AND (balance - held) >= 1` is **atomic** in SQLite WAL mode — concurrent requests can never oversell; only as many holds succeed as there are available credits, the rest get 0 rows → 429
+- `INSERT OR IGNORE` handles race conditions on first-time wallet creation
+- **Idempotency**: the `ref_id` (one per analysis request) means a retried/duplicated request reuses its existing hold instead of charging twice
 
 ---
 
@@ -173,17 +198,21 @@ Insert a trial usage check between cache lookup and AI pipeline execution in the
 |------|--------|
 | `backend/routers/analysis.py` | Add `X-Device-Id` header param + trial gate logic |
 
-### Modified Flow
+### Modified Flow (reserve → run → commit/release)
 
 ```
 Before: Cache check → Data fetch → AI pipeline → Cache save
-After:  Cache check → [Trial Gate] → Data fetch → AI pipeline → Cache save
+After:  Cache check → [reserve credit] → Data fetch → AI pipeline
+                          → success: [commit]  → Cache save
+                          → failure: [release] (refund)
 ```
 
-- Cache hits return before the gate — **free, no usage consumed**
+- **Cache hits return before reserve** — free, no credit consumed
+- `ref_id` (per-request idempotency key) is generated/echoed so a retried request reuses its hold instead of double-charging
+- `reserve_credit` fails (no available credit) → HTTP 429 with `{ error: "trial_limit_reached", balance, available, email_registered }`
+- **Hard failure** (all 3 agents fail / exception / timeout) → `release_credit` (refund). **Partial success** (1–2 agents fail, result still produced) → `commit_credit`
 - `X-Device-Id` is `Optional[str]` for backward compatibility (migration to required = email-only mode)
-- Over-limit returns HTTP 429 with `{ error: "trial_limit_reached", usage_count, max_usage, email_registered }`
-- Successful analysis includes `trial_status` in response body
+- Successful analysis includes wallet status (`balance`, `available`) in the response body
 
 ---
 
@@ -364,9 +393,11 @@ Connect trial state and modals to existing components.
 
 | Scenario | Handling |
 |----------|----------|
-| localStorage cleared | New UUID generated, fresh 3-use trial. Same email can't be re-verified (UNIQUE) |
-| Concurrent analysis requests | Atomic `UPDATE WHERE usage_count < max_usage` — one succeeds, other gets 429 |
-| Global 100/day limit hit | Trial usage consumed but AI pipeline fails with daily limit error |
+| localStorage cleared | New UUID → new wallet with fresh `balance=3`. Same email can't re-grant +3 (UNIQUE) |
+| Concurrent analysis requests | Atomic `UPDATE ... WHERE (balance - held) >= 1` — only as many holds as available credits succeed; the rest get 429 |
+| Hard pipeline failure | `release_credit` refunds the hold — credit is **not** lost |
+| Retry / double-submit | Same `ref_id` reuses the existing hold → **charged once** (idempotent) |
+| Global 100/day limit hit | (Phase 14 = free only) hold is already placed → treat as hard failure → `release` (refund). V2-2 replaces the global cap with a high-threshold circuit breaker |
 | Same email on different device | `request_verification` rejects: "This email is already registered" |
 | Verification code brute-force | Max 3 attempts per code, 10-minute expiry (6-digit = 1M possibilities) |
 | Code spam | Max 3 active codes per device in 10 minutes |
@@ -378,13 +409,13 @@ Connect trial state and modals to existing components.
 ### Hybrid → Email-Only (2 code changes)
 
 1. `backend/routers/analysis.py`: Change `x_device_id: Optional[str] = Header(None)` → `x_device_id: str = Header(...)`
-2. Add check in `check_and_increment_usage`: if `email_verified == 0`, return `allowed: false, reason: "email_required"`
+2. Add check in `reserve_credit`: if `email_verified == 0`, reject with `reason: "email_required"`
 
-### Email-Only → Paid Tier (future)
+### Free → Paid Tier (V2-2, see [`BACKLOG.md`](../BACKLOG.md))
 
-- Add `tier` column to `trial_users` (`free`, `premium`)
-- Add payment verification step before upgrading tier
-- `max_usage` set to unlimited (or high number) for premium
+- Add a `topup` ledger type — payment webhook → `balance += purchased`. **No wallet/ledger redesign**
+- Replace the global 100/day hard cap (`utils/usage_tracker.py`) with a **high-threshold circuit breaker** that only stops runaway/abuse (paid users are never blocked)
+- The reserve → commit/release flow and idempotency are reused unchanged for paid credits
 
 ---
 
@@ -434,9 +465,9 @@ Frontend (after backend is working):
 
 | File | Change |
 |------|--------|
-| `data/database.py` | Add 2 tables to CREATE_TABLES_SQL |
+| `data/database.py` | Add 3 tables to CREATE_TABLES_SQL (wallets + ledger + email_verification) |
 | `backend/main.py` | Import + register trial router |
-| `backend/routers/analysis.py` | Add X-Device-Id header + trial gate |
+| `backend/routers/analysis.py` | Add X-Device-Id header + reserve→commit/release gate |
 | `frontend/src/hooks/useAnalysis.ts` | Add device header + 429 handling |
 | `frontend/src/components/Sidebar.tsx` | Replace AI USAGE with TrialBanner |
 | `frontend/src/components/AiAnalysisInline.tsx` | Wire trialBlocked + modal |
@@ -448,10 +479,12 @@ Frontend (after backend is working):
 
 ### Backend Testing
 
-1. **Unit tests**: trial_service functions (create user, increment, limit, verify code)
-2. **API test**: `curl -H "X-Device-Id: test-uuid" http://localhost:8000/api/trial/status`
-3. **429 test**: Exhaust 3 uses, verify 4th returns 429 with correct detail body
-4. **Cache bypass test**: Cached analysis doesn't increment usage_count
+1. **Unit tests**: trial_service functions (create wallet, reserve/commit/release, refund on failure, verify code)
+2. **API test**: `curl -H "X-Device-Id: test-uuid" http://localhost:8001/api/trial/status`
+3. **429 test**: Exhaust 3 credits, verify 4th returns 429 with correct body (`balance`, `available`, `email_registered`)
+4. **Cache bypass test**: Cached analysis does not reserve/consume a credit
+5. **Refund test**: Force a pipeline failure → confirm `release` ledger row + balance unchanged
+6. **Idempotency test**: Send the same `ref_id` twice → confirm only one credit consumed
 
 ### Frontend Manual Testing
 
@@ -470,6 +503,7 @@ Frontend (after backend is working):
 |------|--------|--------|
 | 2026-05-16 | Document created — initial planning (as Phase 15) | AI |
 | 2026-05-16 | Renumbered from Phase 15 → Phase 14 (swapped with i18n) | AI |
+| 2026-06-09 | Redesigned to **wallet + ledger + reserve/commit (hold)** pattern; payment split to BACKLOG V2-2; global daily cap → circuit breaker on paid migration | AI |
 
 ---
 ---
@@ -480,6 +514,8 @@ Frontend (after backend is working):
 
 **상태**: 🔲 미시작
 **선행 조건**: Phase 13 완료 (포트폴리오), Phase 13.5 완료 (포트폴리오 인증)
+
+> **⚠️ 설계 노트 (2026-06-09 결정)**: 이 Phase는 단순 카운터가 아니라 **"크레딧 지갑 + 거래 원장 + 예약-확정(hold) 패턴"** 구조로 구현한다. 무료 6크레딧은 이 지갑의 초기 잔액으로 충전된다. **실제 결제(PG)·선불 크레딧 판매는 [`BACKLOG.md` V2-2](../BACKLOG.md)로 분리** — Phase 14에서 지은 지갑에 "충전" 동작만 얹는 형태로 설계할 것. 과금 모델: AI 분석 1회 = 1크레딧 차감(포트폴리오/개별주/다중 비교 공통), 캐시 히트 무차감.
 
 ---
 
@@ -499,7 +535,7 @@ Frontend (after backend is working):
 
 | # | 모듈 | 상태 | 유형 | 예상 시간 |
 |---|------|------|------|-----------|
-| 1 | DB 스키마 (trial_users + email_verification) | 🔲 | 백엔드 | 0.5h |
+| 1 | DB 스키마 (wallets + ledger + email_verification) | 🔲 | 백엔드 | 0.5h |
 | 2 | 이메일 발송 모듈 (플러그인, 콘솔 기본) | 🔲 | 백엔드 | 0.5h |
 | 3 | 트라이얼 서비스 (핵심 비즈니스 로직) | 🔲 | 백엔드 | 2h |
 | 4 | 트라이얼 API 라우터 (status, request-code, verify) | 🔲 | 백엔드 | 1h |
@@ -521,25 +557,37 @@ Frontend (after backend is working):
 
 ### 목적
 
-SQLite에 기기별 사용량 추적과 이메일 인증 코드 관리를 위한 테이블 2개 추가.
+SQLite에 테이블 3개 추가: 기기별 크레딧 **지갑(wallet)**, 모든 크레딧 이동을 기록하는 **원장(ledger, 가계부)**, 코드 관리용 **email_verification**. 2026-06-09에 합의한 "지갑" 구조이며 단순 카운터가 아니다.
 
 ### 구현 파일
 
 | 파일 | 변경 |
 |------|------|
-| `data/database.py` | `CREATE_TABLES_SQL`에 `trial_users` + `email_verification` 테이블 추가 |
+| `data/database.py` | `CREATE_TABLES_SQL`에 `wallets` + `ledger` + `email_verification` 테이블 추가 |
 
 ### 스키마
 
 ```sql
-CREATE TABLE IF NOT EXISTS trial_users (
+-- 기기별 크레딧 지갑 (기기당 1줄)
+CREATE TABLE IF NOT EXISTS wallets (
     device_id TEXT PRIMARY KEY,
+    balance INTEGER DEFAULT 3,        -- 보유 크레딧 (익명은 3으로 시작)
+    held INTEGER DEFAULT 0,           -- 분석 진행 중 잠긴 크레딧
     email TEXT UNIQUE,
     email_verified INTEGER DEFAULT 0,
-    usage_count INTEGER DEFAULT 0,
-    max_usage INTEGER DEFAULT 3,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 모든 크레딧 이동의 추가 전용(append-only) 감사 기록
+CREATE TABLE IF NOT EXISTS ledger (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_id TEXT NOT NULL,
+    type TEXT NOT NULL,               -- 'grant' | 'hold' | 'commit' | 'release' | (V2: 'topup')
+    amount INTEGER NOT NULL,          -- 부호 있는 증감 (+3 지급, +1 예약, -1 확정, -1 환불...)
+    ref_id TEXT,                      -- 멱등성 키 (분석 요청당 1개)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (device_id) REFERENCES wallets(device_id)
 );
 
 CREATE TABLE IF NOT EXISTS email_verification (
@@ -550,16 +598,24 @@ CREATE TABLE IF NOT EXISTS email_verification (
     attempts INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP NOT NULL,
-    FOREIGN KEY (device_id) REFERENCES trial_users(device_id)
+    FOREIGN KEY (device_id) REFERENCES wallets(device_id)
 );
 ```
 
+### 핵심 공식
+
+**사용 가능 크레딧 = `balance - held`** — 잠긴(held) 크레딧은 쓸 수 있는 양에서 제외. 이 공식 하나가 §5 게이트를 움직인다.
+
 ### 설계 결정 사항
 
-- `usage_count`는 **누적(lifetime)** — 기존 `utils/usage_tracker.py`의 글로벌 일일 100회 제한과 독립적
-- `email UNIQUE` 제약으로 하나의 이메일이 여러 기기에서 +3 보너스 받는 것 방지
-- `max_usage` 기본값 3 (익명), 이메일 인증 시 6으로 업데이트
-- `CREATE TABLE IF NOT EXISTS` 패턴 사용 — 마이그레이션 불필요, `init_db()` 호출 시 자동 생성
+- 크레딧은 **누적(lifetime)** — `utils/usage_tracker.py`의 글로벌 일일 100회 제한과 독립적
+- **단일 카운터 대신 지갑 + 원장**: 원장은 추가 전용 감사 기록이라 "차감됐는데 결과 없음" 분쟁을 증명 가능. V2-2(결제)에서 크레딧이 실제 돈이 되면 필수
+- `balance` + `held`로 **예약 → 확정/환불(hold) 패턴**(§5) 구현 — 동시성 안전 + 환불 안전 동시 달성
+- `email UNIQUE`로 하나의 이메일이 여러 기기에서 +3 받는 것 방지
+- 이메일 인증 시 **+3** 지급(`grant` 원장 1줄로 `balance += 3`) → 익명 3 → 6
+- 원장의 `ref_id` = **멱등성 키**: 같은 ref_id로 재시도된 요청은 절대 두 번 차감되지 않음
+- `CREATE TABLE IF NOT EXISTS` — 마이그레이션 불필요, `init_db()` 시 자동 생성
+- **유료 확장(V2-2)**: `topup` 원장 타입으로 `balance += 구매량`만 추가. 스키마 재설계 없음 — [`BACKLOG.md` V2-2](../BACKLOG.md) 참조
 
 ---
 
@@ -593,22 +649,25 @@ CREATE TABLE IF NOT EXISTS email_verification (
 
 | 파일 | 변경 |
 |------|------|
-| `services/trial_service.py` | **신규** — 트라이얼 라이프사이클 관리 함수 5개 |
+| `services/trial_service.py` | **신규** — 지갑 라이프사이클 함수 (예약/확정/환불 + 인증) |
 
 ### 함수 목록
 
 | 함수 | 역할 |
 |------|------|
-| `get_or_create_user(device_id)` | 유저 조회/생성. `INSERT OR IGNORE` 패턴으로 동시성 안전 |
-| `check_and_increment_usage(device_id)` | 원자적 체크+증가: `UPDATE ... WHERE usage_count < max_usage` |
+| `get_or_create_user(device_id)` | 지갑 조회/생성. `INSERT OR IGNORE`, 초기 `balance=3` + `grant` 원장 1줄 |
+| `reserve_credit(device_id, ref_id)` | **원자적 예약(hold)**: `UPDATE wallets SET held = held + 1 WHERE device_id = ? AND (balance - held) >= 1`. 0행 영향 → 크레딧 없음. `hold` 원장 기록. 멱등: 같은 `ref_id`가 이미 예약돼 있으면 새로 잡지 않고 기존 예약 반환 |
+| `commit_credit(device_id, ref_id)` | **성공 시**: `UPDATE wallets SET balance = balance - 1, held = held - 1 WHERE device_id = ?`. `commit` 원장 기록 |
+| `release_credit(device_id, ref_id)` | **실패 시(환불)**: `UPDATE wallets SET held = held - 1 WHERE device_id = ?`. `release` 원장 기록 |
 | `request_verification(device_id, email)` | 6자리 코드 생성, DB 저장, email_sender로 발송. 10분 만료 |
-| `verify_code(device_id, email, code)` | 코드 검증, 성공 시 `max_usage=6` 설정. 코드당 최대 3회 오입력 |
-| `get_trial_status(device_id)` | 읽기 전용 상태: usage_count, max_usage, remaining, tier |
+| `verify_code(device_id, email, code)` | 코드 검증, 성공 시 `balance += 3`(`grant` 원장 1줄) + `email_verified=1` 설정. 코드당 최대 3회 오입력 |
+| `get_status(device_id)` | 읽기 전용 상태: `balance`, `held`, `available`(=balance-held), `email_verified`, tier |
 
 ### 동시성 안전
 
-- `UPDATE trial_users SET usage_count = usage_count + 1 WHERE device_id = ? AND usage_count < max_usage`는 SQLite WAL 모드에서 원자적
-- `INSERT OR IGNORE`로 첫 사용자 생성 시 레이스 컨디션 처리
+- `UPDATE wallets SET held = held + 1 WHERE device_id = ? AND (balance - held) >= 1`는 SQLite WAL 모드에서 **원자적** — 동시 요청이 절대 초과 사용 못 함. 사용 가능 크레딧 수만큼만 예약 성공, 나머지는 0행 → 429
+- `INSERT OR IGNORE`로 첫 지갑 생성 시 레이스 컨디션 처리
+- **멱등성**: `ref_id`(분석 요청당 1개)로 재시도/중복 요청은 기존 예약을 재사용 → 두 번 차감 안 됨
 
 ---
 
@@ -649,17 +708,21 @@ CREATE TABLE IF NOT EXISTS email_verification (
 |------|------|
 | `backend/routers/analysis.py` | `X-Device-Id` 헤더 파라미터 + 트라이얼 게이트 로직 추가 |
 
-### 수정된 흐름
+### 수정된 흐름 (예약 → 실행 → 확정/환불)
 
 ```
 이전: 캐시 확인 → 데이터 수집 → AI 파이프라인 → 캐시 저장
-이후: 캐시 확인 → [트라이얼 게이트] → 데이터 수집 → AI 파이프라인 → 캐시 저장
+이후: 캐시 확인 → [크레딧 예약] → 데이터 수집 → AI 파이프라인
+                       → 성공: [확정commit]  → 캐시 저장
+                       → 실패: [환불release]
 ```
 
-- 캐시 히트는 게이트 이전에 리턴 — **무료, 횟수 차감 없음**
+- **캐시 히트는 예약 이전에 리턴** — 무료, 크레딧 차감 없음
+- `ref_id`(요청별 멱등성 키)를 생성/전달 → 재시도 요청은 기존 예약 재사용(중복 차감 방지)
+- `reserve_credit` 실패(가용 크레딧 없음) → HTTP 429: `{ error: "trial_limit_reached", balance, available, email_registered }`
+- **하드 실패**(전 에이전트 실패 / 예외 / 타임아웃) → `release_credit`(환불). **부분 성공**(1~2개 실패해도 결과 생성) → `commit_credit`
 - `X-Device-Id`는 `Optional[str]`로 하위 호환 (이메일 전용 전환 시 필수로 변경)
-- 한도 초과 시 HTTP 429: `{ error: "trial_limit_reached", usage_count, max_usage, email_registered }`
-- 분석 성공 시 응답에 `trial_status` 포함
+- 분석 성공 시 응답에 지갑 상태(`balance`, `available`) 포함
 
 ---
 
@@ -840,9 +903,11 @@ CREATE TABLE IF NOT EXISTS email_verification (
 
 | 시나리오 | 처리 |
 |----------|------|
-| localStorage 초기화 | 새 UUID 생성, 새 3회 체험. 동일 이메일 재인증 불가 (UNIQUE) |
-| 동시 분석 요청 | 원자적 `UPDATE WHERE usage_count < max_usage` — 하나 성공, 나머지 429 |
-| 글로벌 100/일 한도 도달 | 트라이얼 횟수 소비되나 AI 파이프라인 일일 한도 에러 반환 |
+| localStorage 초기화 | 새 UUID → `balance=3` 새 지갑. 동일 이메일 +3 재지급 불가 (UNIQUE) |
+| 동시 분석 요청 | 원자적 `UPDATE ... WHERE (balance - held) >= 1` — 가용 크레딧 수만큼만 예약 성공, 나머지 429 |
+| 하드 파이프라인 실패 | `release_credit`로 예약 환불 — 크레딧 **유실 안 됨** |
+| 재시도 / 중복 제출 | 같은 `ref_id`로 기존 예약 재사용 → **1회만 차감**(멱등) |
+| 글로벌 100/일 한도 도달 | (Phase 14 = 무료 전용) 예약은 이미 잡힘 → 하드 실패로 간주 → `release`(환불). V2-2에서 글로벌 캡을 고임계 서킷브레이커로 교체 |
 | 다른 기기에서 동일 이메일 | `request_verification` 거부: "이 이메일은 이미 등록되어 있습니다" |
 | 인증 코드 무차별 대입 | 코드당 최대 3회 시도, 10분 만료 (6자리 = 100만 경우의 수) |
 | 코드 스팸 | 기기당 10분 내 최대 3개 활성 코드 |
@@ -854,13 +919,13 @@ CREATE TABLE IF NOT EXISTS email_verification (
 ### 하이브리드 → 이메일 전용 (코드 2곳 수정)
 
 1. `backend/routers/analysis.py`: `x_device_id: Optional[str] = Header(None)` → `x_device_id: str = Header(...)`
-2. `check_and_increment_usage`에 체크 추가: `email_verified == 0`이면 `allowed: false, reason: "email_required"` 반환
+2. `reserve_credit`에 체크 추가: `email_verified == 0`이면 `reason: "email_required"`로 거부
 
-### 이메일 전용 → 유료 티어 (향후)
+### 무료 → 유료 티어 (V2-2, [`BACKLOG.md`](../BACKLOG.md) 참조)
 
-- `trial_users`에 `tier` 컬럼 추가 (`free`, `premium`)
-- 티어 업그레이드 전 결제 확인 단계 추가
-- 프리미엄 사용자 `max_usage` 무제한(또는 고수치) 설정
+- `topup` 원장 타입 추가 — 결제 웹훅 → `balance += 구매량`. **지갑/원장 재설계 없음**
+- 글로벌 일일 100회 하드캡(`utils/usage_tracker.py`)을 **고임계 서킷브레이커**로 교체 — 폭주/어뷰징만 차단(유료 사용자는 절대 안 막힘)
+- 예약 → 확정/환불 흐름과 멱등성은 유료 크레딧에도 그대로 재사용
 
 ---
 
@@ -910,9 +975,9 @@ CREATE TABLE IF NOT EXISTS email_verification (
 
 | 파일 | 변경 |
 |------|------|
-| `data/database.py` | CREATE_TABLES_SQL에 테이블 2개 추가 |
+| `data/database.py` | CREATE_TABLES_SQL에 테이블 3개 추가 (wallets + ledger + email_verification) |
 | `backend/main.py` | trial 라우터 import + 등록 |
-| `backend/routers/analysis.py` | X-Device-Id 헤더 + 트라이얼 게이트 |
+| `backend/routers/analysis.py` | X-Device-Id 헤더 + 예약→확정/환불 게이트 |
 | `frontend/src/hooks/useAnalysis.ts` | 기기 헤더 + 429 처리 |
 | `frontend/src/components/Sidebar.tsx` | AI USAGE → TrialBanner 교체 |
 | `frontend/src/components/AiAnalysisInline.tsx` | trialBlocked + 모달 연결 |
@@ -924,10 +989,12 @@ CREATE TABLE IF NOT EXISTS email_verification (
 
 ### 백엔드 테스트
 
-1. **단위 테스트**: trial_service 함수별 (유저 생성, 증가, 한도, 코드 검증)
-2. **API 테스트**: `curl -H "X-Device-Id: test-uuid" http://localhost:8000/api/trial/status`
-3. **429 테스트**: 3회 소진 후 4번째 요청 → 429 + 상세 바디 확인
-4. **캐시 우회 테스트**: 캐시된 분석은 usage_count 미증가 확인
+1. **단위 테스트**: trial_service 함수별 (지갑 생성, 예약/확정/환불, 실패 시 환불, 코드 검증)
+2. **API 테스트**: `curl -H "X-Device-Id: test-uuid" http://localhost:8001/api/trial/status`
+3. **429 테스트**: 3크레딧 소진 후 4번째 요청 → 429 + 바디(`balance`, `available`, `email_registered`) 확인
+4. **캐시 우회 테스트**: 캐시된 분석은 예약/차감 안 함 확인
+5. **환불 테스트**: 파이프라인 강제 실패 → `release` 원장 1줄 + balance 불변 확인
+6. **멱등성 테스트**: 같은 `ref_id` 2회 전송 → 크레딧 1회만 차감 확인
 
 ### 프론트엔드 수동 테스트
 
@@ -946,3 +1013,4 @@ CREATE TABLE IF NOT EXISTS email_verification (
 |------|------|--------|
 | 2026-05-16 | 문서 신규 작성 — 초기 계획 (Phase 15로) | AI |
 | 2026-05-16 | Phase 15 → Phase 14로 번호 변경 (i18n과 교체) | AI |
+| 2026-06-09 | **지갑 + 원장 + 예약/확정(hold)** 패턴으로 재설계; 결제는 BACKLOG V2-2로 분리; 유료 전환 시 글로벌 일일 캡 → 서킷브레이커 | AI |
