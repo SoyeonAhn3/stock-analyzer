@@ -5,6 +5,8 @@ interface UseApiResult<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
+  /** 서버가 X-Data-Fallback 헤더를 실어 보낸 경우 true (사내망 차단 → 샘플 데이터) */
+  fallback: boolean;
   refetch: () => void;
 }
 
@@ -13,6 +15,7 @@ export function useApi<T>(path: string): UseApiResult<T> {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [fallback, setFallback] = useState(false);
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -20,6 +23,7 @@ export function useApi<T>(path: string): UseApiResult<T> {
     fetch(`${API_BASE}${path}`)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setFallback(res.headers.get('X-Data-Fallback') === '1');
         return res.json();
       })
       .then(setData)
@@ -31,7 +35,7 @@ export function useApi<T>(path: string): UseApiResult<T> {
     fetchData();
   }, [fetchData]);
 
-  return { data, loading, error, refetch: fetchData };
+  return { data, loading, error, fallback, refetch: fetchData };
 }
 
 /** POST 요청 hook — trigger()로 수동 호출 */

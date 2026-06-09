@@ -1,6 +1,7 @@
 import { useTheme } from '../../theme/ThemeProvider';
 import { FONTS, FONT_SIZES, SPACING, RADIUS } from '../../theme/tokens';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
+import Tooltip from '../Tooltip';
 
 interface Props {
   analysis: Record<string, any>;
@@ -104,10 +105,10 @@ export default function PortfolioAnalysis({ analysis, aiReport, onReanalyze, loa
       <div style={card}>
         <div style={sectionLabel}>Portfolio Scores</div>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr 1fr 1fr', gap: SPACING.md }}>
-          <ScoreGauge label="Diversification" score={scores.diversification} theme={theme} invert={false} />
-          <ScoreGauge label="Risk" score={scores.risk} theme={theme} invert={true} />
-          <ScoreGauge label="Performance" score={scores.performance} theme={theme} invert={false} />
-          <ScoreGauge label="Quality" score={scores.quality} theme={theme} invert={false} />
+          <ScoreGauge label="Diversification" score={scores.diversification} theme={theme} invert={false} description="섹터·종목·국가 분산 정도. 높을수록 리스크 분산이 잘 되어 있습니다." />
+          <ScoreGauge label="Risk" score={scores.risk} theme={theme} invert={true} description="포트폴리오 전체 변동성 및 종목 간 상관관계 리스크. 낮을수록 안정적입니다." />
+          <ScoreGauge label="Performance" score={scores.performance} theme={theme} invert={false} description="수익률, 리스크 대비 수익(샤프비율) 등 종합 성과. 높을수록 우수합니다." />
+          <ScoreGauge label="Quality" score={scores.quality} theme={theme} invert={false} description="보유 종목의 재무 건전성(ROE, 부채비율 등). 높을수록 우량 종목 비중이 높습니다." />
         </div>
       </div>
 
@@ -275,7 +276,7 @@ export default function PortfolioAnalysis({ analysis, aiReport, onReanalyze, loa
         {fundamentals.annual_dividend != null && (
           <div style={{ marginTop: SPACING.md, fontSize: FONT_SIZES.xs, color: theme.text_muted }}>
             연간 예상 배당금: <span style={{ fontFamily: FONTS.numeric, color: theme.text_secondary }}>${fmt(fundamentals.annual_dividend)}</span>
-            {' · '}Yield on Cost: <span style={{ fontFamily: FONTS.numeric, color: theme.text_secondary }}>{fmt(fundamentals.yield_on_cost, 2)}%</span>
+            {' · '}Yield on Cost: <span style={{ fontFamily: FONTS.numeric, color: theme.text_secondary }}>{fmt(fundamentals.yield_on_cost, 1)}%</span>
           </div>
         )}
       </div>
@@ -429,7 +430,7 @@ function KeyMetricCard({ label, value, valueColor, sub, theme }: { label: string
   );
 }
 
-function ScoreGauge({ label, score, theme, invert }: { label: string; score: number; theme: any; invert: boolean }) {
+function ScoreGauge({ label, score, theme, invert, description }: { label: string; score: number; theme: any; invert: boolean; description?: string }) {
   const s = score ?? 0;
   const getColor = () => {
     if (invert) return s > 66 ? theme.down : s > 33 ? theme.warning : theme.up;
@@ -448,7 +449,10 @@ function ScoreGauge({ label, score, theme, invert }: { label: string; score: num
         <div style={{ width: `${s}%`, height: '100%', background: getColor(), borderRadius: 3 }} />
       </div>
       <div style={{ fontSize: FONT_SIZES.xs, color: getColor() }}>{getLabel()}</div>
-      <div style={{ fontSize: FONT_SIZES.xs, color: theme.text_muted, marginTop: '2px' }}>{label}</div>
+      <div style={{ fontSize: FONT_SIZES.xs, color: theme.text_muted, marginTop: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+        {label}
+        {description && <Tooltip text={description} />}
+      </div>
     </div>
   );
 }

@@ -289,12 +289,36 @@ export default function CompareMode() {
               </div>
               {Object.entries(aiResult.analysis.rankings as Record<string, any>).map(([category, ranking]) => (
                 <div key={category} style={{ padding: `${SPACING.sm} 0`, borderBottom: `1px solid ${theme.border}` }}>
-                  <span style={{ color: theme.text_secondary, fontSize: FONT_SIZES.sm, fontWeight: 600 }}>
-                    {category}:
-                  </span>{' '}
-                  <span style={{ color: theme.text_primary, fontSize: FONT_SIZES.sm }}>
-                    {safeRender(ranking)}
-                  </span>
+                  <div style={{ color: theme.text_secondary, fontSize: FONT_SIZES.sm, fontWeight: 600, marginBottom: SPACING.xs }}>
+                    {category}
+                  </div>
+                  {Array.isArray(ranking) ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.xs }}>
+                      {[...ranking]
+                        .sort((a, b) => (a?.rank ?? 99) - (b?.rank ?? 99))
+                        .map((item, i) => {
+                          const rank = item?.rank ?? i + 1;
+                          const rankColor = rank === 1 ? theme.up : rank === 2 ? theme.text_secondary : theme.text_muted;
+                          return (
+                            <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: SPACING.sm }}>
+                              <span style={{ color: rankColor, fontWeight: 700, fontSize: FONT_SIZES.sm, minWidth: 20 }}>
+                                #{rank}
+                              </span>
+                              <span style={{ color: theme.text_primary, fontWeight: 600, fontSize: FONT_SIZES.sm, minWidth: 56 }}>
+                                {item?.ticker ?? '--'}
+                              </span>
+                              <span style={{ color: theme.text_muted, fontSize: FONT_SIZES.sm, lineHeight: 1.5 }}>
+                                {item?.reason ?? ''}
+                              </span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  ) : (
+                    <span style={{ color: theme.text_primary, fontSize: FONT_SIZES.sm }}>
+                      {safeRender(ranking)}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>

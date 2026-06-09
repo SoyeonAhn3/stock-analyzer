@@ -137,8 +137,8 @@ cp .env.example .env
 ### 3. Run
 
 ```bash
-# Terminal 1 — Backend (port 8000)
-uvicorn backend.main:app --reload
+# Terminal 1 — Backend (port 8001)
+uvicorn backend.main:app --reload --port 8001
 
 # Terminal 2 — Frontend (port 5173)
 cd frontend
@@ -268,7 +268,7 @@ Tests cover API integration (real API calls), data processing, and AI agent pipe
 | 11 | Code Quality | ✅ Done | API key masking + singletons + parallelization |
 | 12 | UI/UX + Mobile Optimization | ✅ Done | Mobile responsive + bottom nav + touch UX |
 | 13 | Portfolio | ✅ Done | Holdings tracking + AI portfolio analysis |
-| 13.5 | Portfolio Authentication | 🔲 Planned | Code+PIN auth gate + server-side storage |
+| 13.5 | Portfolio Authentication | ✅ Done | Code+PIN auth gate + server-side storage |
 
 ## Limitations
 

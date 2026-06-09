@@ -56,6 +56,23 @@ export default function MarketOverview() {
       {movers.error && <ErrorBanner message="Failed to load market movers" onRetry={movers.refetch} />}
       {news.error && <ErrorBanner message="Failed to load market news" onRetry={news.refetch} />}
 
+      {(movers.fallback || news.fallback) && (
+        <div
+          style={{
+            background: '#3a3000',
+            border: '1px solid #8a7400',
+            borderRadius: RADIUS.card,
+            padding: `${SPACING.sm} ${SPACING.md}`,
+            marginBottom: SPACING.lg,
+            color: '#f5d76e',
+            fontSize: FONT_SIZES.sm,
+            lineHeight: 1.5,
+          }}
+        >
+          ⚠️ 사내망 방화벽으로 외부 시세 데이터(Yahoo·Finviz·Finnhub)가 차단되어 <b>샘플 데이터</b>를 표시 중입니다. 실데이터는 외부망에서 확인하세요.
+        </div>
+      )}
+
       {/* Responsive grid */}
       <div style={{ display: 'grid', gridTemplateColumns: bp === 'mobile' ? '1fr' : '1fr 1fr', gap: SPACING.lg }}>
         {/* Movers */}

@@ -29,6 +29,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Data-Fallback"],
 )
 
 # 라우터 등록

@@ -133,8 +133,8 @@ cp .env.example .env
 ### 3. 실행
 
 ```bash
-# 터미널 1 — 백엔드 (포트 8000)
-uvicorn backend.main:app --reload
+# 터미널 1 — 백엔드 (포트 8001)
+uvicorn backend.main:app --reload --port 8001
 
 # 터미널 2 — 프론트엔드 (포트 5173)
 cd frontend
@@ -260,7 +260,7 @@ pytest tests/test_phase3_ai_analysis.py
 | 11 | 코드 품질 | ✅ 완료 | API 키 마스킹 + 싱글턴 + 병렬화 |
 | 12 | UI/UX + 모바일 최적화 | ✅ 완료 | 모바일 반응형 + 바텀 네비 + 터치 UX |
 | 13 | Portfolio | ✅ 완료 | 보유 종목 관리 + AI 포트폴리오 분석 |
-| 13.5 | 포트폴리오 인증 | 🔲 예정 | 코드+PIN 인증 게이트 + 서버 측 저장 |
+| 13.5 | 포트폴리오 인증 | ✅ 완료 | 코드+PIN 인증 게이트 + 서버 측 저장 |
 
 ## 한계점
 

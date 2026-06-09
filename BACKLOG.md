@@ -20,9 +20,9 @@
 | 12 | Cross Sector 분석 품질 개선 (데이터 확충 + 프롬프트 고도화) | 상 | **완료** | — |
 | 13 | Compare 테이블 Fundamentals 누락 수정 (yfinance 부분 응답 + FMP 병합) | 긴급 | **완료** | — |
 | 14 | QuickLook Fundamentals 404 수정 (fast_info + Finviz 폴백) | 긴급 | **완료** | — |
-| 15 | Portfolio Scores 물음표 아이콘 (Tooltip 설명 추가) | 중 | 미착수 | Phase 13 |
-| 16 | Portfolio 배당 분류 임계값 수정 + Yield 소수점 반올림 | 중 | 미착수 | Phase 13 |
-| 17 | Compare Rankings 배열 JSON 렌더링 수정 | 중 | 미착수 | — |
+| 15 | Portfolio Scores 물음표 아이콘 (Tooltip 설명 추가) | 중 | **완료** | Phase 13 |
+| 16 | Portfolio 배당 분류 임계값 수정 + Yield 소수점 반올림 | 중 | **완료** | Phase 13 |
+| 17 | Compare Rankings 배열 JSON 렌더링 수정 | 중 | **완료** | — |
 
 ---
 

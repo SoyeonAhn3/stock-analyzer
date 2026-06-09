@@ -539,8 +539,8 @@ def _calc_style(
             small_w += w
             cap_label = "small"
 
-        # 배당
-        if dy and dy > 0.01:
+        # 배당 — 배당금이 존재하면(>0) 배당주로 분류 (기존 1% 초과 임계값은 소액 배당주를 비배당으로 오분류함)
+        if dy and dy > 0:
             dividend_w += w
             div_label = "dividend"
         else:
