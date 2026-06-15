@@ -1,45 +1,75 @@
-# Phase 14 — Free Trial Hybrid (3+3) System `🔲 Not Started`
+# Phase 14 — Free Trial (Google Login Gate) System `🔶 In Progress (Backend Done)`
 
-> Device-based anonymous 3 free analyses + email registration for 3 more (total 6). Designed for future migration to email-only and paid tier.
+> Google-login-gated free trial: AI analysis requires sign-in, granting 3 free analyses per account. Other features (quotes, charts, sectors) remain open. Wallet/ledger infra reused as-is for future paid tier.
 
-**Status**: 🔲 Not Started
+**Status**: 🔶 In Progress — Backend wallet core ✅ Done (2026-06-09) · Google auth pivot + Frontend 🔲 Not Started (2026-06-15 결정)
 **Prerequisites**: Phase 13 completed (Portfolio), Phase 13.5 completed (Portfolio Auth)
 
-> **⚠️ 설계 노트 (2026-06-09 결정)**: 이 Phase는 단순 카운터가 아니라 **"크레딧 지갑 + 거래 원장 + 예약-확정(hold) 패턴"** 구조로 구현한다. 무료 6크레딧은 이 지갑의 초기 잔액으로 충전된다. **실제 결제(PG)·선불 크레딧 판매는 [`BACKLOG.md` V2-2](../BACKLOG.md)로 분리** — Phase 14에서 지은 지갑에 "충전" 동작만 얹는 형태로 설계할 것. 과금 모델: AI 분석 1회 = 1크레딧 차감(포트폴리오/개별주/다중 비교 공통), 캐시 히트 무차감.
+> **⚠️ 설계 변경 (2026-06-15 결정) — 이메일 인증 → Google 로그인 피벗**
+> 당초 "익명 3회 + 이메일 인증 +3회(총 6회)" 하이브리드 설계였으나, 아래로 변경한다:
+> - **인증 방식**: 이메일 6자리 코드 → **Google OAuth 로그인** (SMTP/코드발송 불필요, UX 단순, V2-2 유료계정으로 직결)
+> - **무료 제공량**: 익명3+이메일3=6회 → **로그인 시 3회**
+> - **게이트 범위**: 앱 전체 아님 → **"AI 분석" 버튼 클릭 시에만** 로그인 요구. 시세·차트·섹터·비교는 비로그인 사용 유지
+> - **신원 식별**: `X-Device-Id`(localStorage UUID) → **Google `sub`(검증된 ID 토큰)**. 지갑/원장/hold 코어는 그대로 재사용, 신원 키만 교체
+> - **UI**: 분석 버튼 옆 "n회 남음" 표시 안 함 (사이드바 배너에만 노출)
+> - **폐기**: 이메일 발송기(`email_sender.py`), `email_verification` 테이블, `/trial/request-code`·`/trial/verify` 엔드포인트 → 미사용
+> - 사내망 차단 환경은 이번 범위에서 고려하지 않음 (Google 접속 전제)
+>
+> **⚠️ 설계 노트 (2026-06-09 결정 — 유효)**: 이 Phase는 단순 카운터가 아니라 **"크레딧 지갑 + 거래 원장 + 예약-확정(hold) 패턴"** 구조로 구현한다. 무료 크레딧은 이 지갑의 초기 잔액으로 충전된다. **실제 결제(PG)·선불 크레딧 판매는 [`BACKLOG.md` V2-2](../BACKLOG.md)로 분리** — Phase 14에서 지은 지갑에 "충전" 동작만 얹는 형태로 설계할 것. 과금 모델: AI 분석 1회 = 1크레딧 차감(포트폴리오/개별주/다중 비교 공통), 캐시 히트 무차감.
 
 ---
 
 ## Overview
 
-The app currently has no per-user tracking — all API endpoints are public with only a global 100/day AI call limit. This Phase introduces a hybrid free trial system that:
+The app currently has no per-user tracking — all API endpoints are public with only a global 100/day AI call limit. This Phase introduces a **Google-login-gated** free trial system:
 
-1. **Anonymous tier (3 uses)**: Identifies devices via UUID stored in localStorage, sent as `X-Device-Id` header
-2. **Email tier (+3 uses, total 6)**: Email verification upgrades the anonymous user to 6 lifetime analyses
+1. **Open features**: Quotes, charts, sector screening, compare — usable without login (unchanged)
+2. **Gated feature**: Clicking "AI 분석" requires Google sign-in; each account gets **3 free analyses**
 3. **Cache hits are free**: Only fresh AI pipeline executions count toward the trial limit
 
-**Migration path**: Hybrid → Email-only requires changing 2 lines of code (make `X-Device-Id` required + check `email_verified`). Paid tier integration adds a payment check to the same gate.
+**Identity**: Google ID token (`Authorization: Bearer`) verified server-side; the token's `sub` keys the credit wallet. **Migration path**: Free → Paid (V2-2) adds a `topup` ledger type to the same wallet — no redesign.
 
 ---
 
 ## Deliverables
 
+> 표는 **2026-06-15 Google 로그인 피벗** 반영본. 이메일 단계(구 ②·⑩)는 제거, Google 인증 단계로 대체.
+
 | # | Module | Status | Type | Est. Hours |
 |---|---|---|---|---|
-| 1 | DB Schema (wallets + ledger + email_verification) | 🔲 | backend | 0.5h |
-| 2 | Email Sender (pluggable, console default) | 🔲 | backend | 0.5h |
-| 3 | Trial Service (core business logic) | 🔲 | backend | 2h |
-| 4 | Trial API Router (status, request-code, verify) | 🔲 | backend | 1h |
-| 5 | Analysis Endpoint Trial Gate | 🔲 | backend | 1h |
-| 6 | Device ID + Trial API Client (frontend) | 🔲 | frontend | 1h |
-| 7 | useTrial Hook | 🔲 | frontend | 1h |
-| 8 | useAnalysis Hook Modification | 🔲 | frontend | 1h |
-| 9 | TrialBanner Component | 🔲 | frontend | 1h |
-| 10 | EmailRegistrationModal Component | 🔲 | frontend | 2h |
-| 11 | TrialLimitModal Component | 🔲 | frontend | 1h |
-| 12 | Existing Component Wiring (Sidebar, AiAnalysisInline, QuickLook) | 🔲 | frontend | 1h |
-| 13 | Integration Test + QA | 🔲 | general | 1.5h |
+| 1 | DB Schema (wallets + ledger) — `email_verification` 미사용 | ✅ | backend | 0.5h |
+| 2 | Trial Service (지갑/원장/hold 코어) — `request_verification`/`verify_code` 폐기 | ✅* | backend | 2h |
+| 3 | Trial API Router — `/trial/status`만 유지 (request-code/verify 제거) | 🔶 | backend | 0.5h |
+| 4 | Analysis Trial Gate — `X-Device-Id` → 검증된 Google `sub`, 게이트 상시 적용 | 🔶 | backend | 1h |
+| 5 | Backend Google Token Verify (`backend/auth.py` 신규, `google-auth`) | 🔲 | backend | 1.5h |
+| 6 | Frontend Auth — `@react-oauth/google` + `GoogleOAuthProvider` + `useAuth` | 🔲 | frontend | 2h |
+| 7 | useAnalysis Hook — `Authorization` 헤더 + 429 → `trialBlocked` | 🔲 | frontend | 1h |
+| 8 | LoginButton Component | 🔲 | frontend | 0.5h |
+| 9 | TrialBanner Component (남은 횟수 + 유저 + 로그아웃, Sidebar 교체) | 🔲 | frontend | 1h |
+| 10 | TrialLimitModal Component (단일 변형 "3회 소진, 프리미엄 준비중") | 🔲 | frontend | 0.5h |
+| 11 | Gate Wiring (AiAnalysisInline 두 버튼: 비로그인 시 로그인 우선) | 🔲 | frontend | 1h |
+| 12 | Integration Test + QA | 🔲 | general | 1.5h |
 
-**Total: ~14.5 hours**
+**Total: ~13 hours** · `*`코어 로직 완료, 초기 잔액 6→3 + 이메일 함수 정리 필요
+
+### 구현 현황 (2026-06-15 기준)
+
+**✅ 재사용 (백엔드 지갑 코어, 2026-06-09 구축)** — commits `44fb375`, `79614da`
+- `data/database.py` — `wallets` / `ledger` 테이블 (지갑/원장 그대로 재사용)
+- `services/trial_service.py` — `reserve`/`commit`/`release`/`get_status` (hold 패턴) 재사용
+
+**🔶 수정 필요 (피벗 반영)**
+- `services/trial_service.py` — `_ensure_wallet` 초기 잔액 **6 → 3**, 이메일 인증 함수 폐기
+- `backend/routers/trial.py` — `request-code`/`verify` 제거, `/status`를 토큰 기반으로
+- `backend/routers/analysis.py` — 신원 키 `X-Device-Id` → Google `sub`, 게이트 상시 적용
+
+**🔲 신규 (미착수)**
+- 백엔드: `backend/auth.py` (Google ID 토큰 검증)
+- 프론트: `useAuth` / `LoginButton` / `TrialBanner` / `TrialLimitModal` + 게이트 와이어링
+
+**🗑️ 폐기 (미사용 전환)** — `services/email_sender.py`, `email_verification` 테이블
+
+**🔑 선행 필요**: Google Cloud OAuth 클라이언트 ID 발급 → `.env`의 `VITE_GOOGLE_CLIENT_ID`
 
 ---
 
