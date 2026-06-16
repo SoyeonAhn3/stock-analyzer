@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ThemeProvider, useTheme } from './theme/ThemeProvider';
+import { AuthProvider } from './auth/AuthProvider';
+import { GOOGLE_CLIENT_ID } from './config';
 import { SIDEBAR_WIDTH, TICKER_BAR_HEIGHT, SPACING } from './theme/tokens';
 import Sidebar from './components/Sidebar';
 import TickerBar from './components/TickerBar';
@@ -116,10 +119,14 @@ function AppLayout() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <ThemeProvider>
-        <AppLayout />
-      </ThemeProvider>
-    </BrowserRouter>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <AuthProvider>
+        <BrowserRouter>
+          <ThemeProvider>
+            <AppLayout />
+          </ThemeProvider>
+        </BrowserRouter>
+      </AuthProvider>
+    </GoogleOAuthProvider>
   );
 }

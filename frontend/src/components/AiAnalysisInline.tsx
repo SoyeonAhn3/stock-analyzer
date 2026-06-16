@@ -1,7 +1,10 @@
 import { useTheme } from '../theme/ThemeProvider';
 import { FONTS, FONT_SIZES, SPACING, RADIUS } from '../theme/tokens';
 import { useBreakpoint } from '../hooks/useBreakpoint';
+import { useAuth } from '../auth/AuthProvider';
 import AgentDetailSection from './AgentDetailSection';
+import LoginButton from './LoginButton';
+import TrialLimitModal from './TrialLimitModal';
 import type { AnalysisResult, FullAnalysisResponse } from '../types/api';
 
 interface Props {
@@ -11,6 +14,8 @@ interface Props {
   error: string | null;
   cachedAt: string | null;
   onTrigger: (force?: boolean) => void;
+  trialBlocked?: boolean;
+  onClearTrialBlocked?: () => void;
 }
 
 function timeAgo(isoString: string): string {
@@ -26,9 +31,10 @@ function timeAgo(isoString: string): string {
 
 const AGENTS = ['News Agent', 'Data Agent', 'Macro Agent', 'Cross-validation', 'Analyst Agent'];
 
-export default function AiAnalysisInline({ result, fullResponse, loading, error, cachedAt, onTrigger }: Props) {
+export default function AiAnalysisInline({ result, fullResponse, loading, error, cachedAt, onTrigger, trialBlocked, onClearTrialBlocked }: Props) {
   const { theme } = useTheme();
   const bp = useBreakpoint();
+  const { isLoggedIn } = useAuth();
 
   const verdictColor: Record<string, string> = { BUY: theme.up, HOLD: theme.warning, SELL: theme.down };
   const confidenceColor: Record<string, string> = { high: theme.accent, medium: theme.warning, low: theme.text_muted };
@@ -75,49 +81,67 @@ export default function AiAnalysisInline({ result, fullResponse, loading, error,
           </span>
         </div>
 
-        {/* Re-analyze button (shown when result exists) */}
+        {/* Re-analyze (when result exists) — 비로그인 시 로그인 우선 */}
         {result && !loading && (
-          <button
-            onClick={() => {
-              if (window.confirm('AI 호출 5회가 발생합니다 (일일 한도 차감). 진행할까요?')) {
-                onTrigger(true);
-              }
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: SPACING.xs,
-              padding: `${SPACING.xs} ${SPACING.md}`,
-              background: 'transparent',
-              border: `1px solid ${theme.border}`,
-              borderRadius: RADIUS.button,
-              color: theme.text_secondary,
-              fontSize: FONT_SIZES.sm,
-              cursor: 'pointer',
-            }}
-          >
-            ↻ Re-analyze
-          </button>
+          isLoggedIn ? (
+            <button
+              onClick={() => {
+                if (window.confirm('무료 분석 1회를 사용합니다. 다시 분석할까요?')) {
+                  onTrigger(true);
+                }
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: SPACING.xs,
+                padding: `${SPACING.xs} ${SPACING.md}`,
+                background: 'transparent',
+                border: `1px solid ${theme.border}`,
+                borderRadius: RADIUS.button,
+                color: theme.text_secondary,
+                fontSize: FONT_SIZES.sm,
+                cursor: 'pointer',
+              }}
+            >
+              ↻ Re-analyze
+            </button>
+          ) : (
+            <LoginButton size="small" />
+          )
         )}
       </div>
 
-      {/* Trigger button — only when no result and not loading */}
+      {/* Trigger — only when no result and not loading. 비로그인 시 로그인 우선. */}
       {!result && !loading && (
-        <button
-          onClick={() => onTrigger(false)}
-          style={{
-            width: '100%',
-            padding: SPACING.lg,
-            background: theme.accent,
-            color: '#FFFFFF',
-            borderRadius: RADIUS.button,
-            fontSize: FONT_SIZES.lg,
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
-        >
-          Start AI Analysis
-        </button>
+        isLoggedIn ? (
+          <button
+            onClick={() => onTrigger(false)}
+            style={{
+              width: '100%',
+              padding: SPACING.lg,
+              background: theme.accent,
+              color: '#FFFFFF',
+              borderRadius: RADIUS.button,
+              fontSize: FONT_SIZES.lg,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Start AI Analysis
+          </button>
+        ) : (
+          <div style={{ ...cardStyle, textAlign: 'center' }}>
+            <div style={{ color: theme.text_primary, fontSize: FONT_SIZES.md, fontWeight: 600, marginBottom: SPACING.xs }}>
+              🔒 Sign in to run AI analysis
+            </div>
+            <p style={{ color: theme.text_muted, fontSize: FONT_SIZES.sm, marginBottom: SPACING.md }}>
+              Get 3 free AI analyses with your Google account.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <LoginButton size="large" />
+            </div>
+          </div>
+        )
       )}
 
       {/* Loading */}
@@ -257,6 +281,9 @@ export default function AiAnalysisInline({ result, fullResponse, loading, error,
           </div>
         </>
       )}
+
+      {/* 무료 한도 도달(HTTP 429) 모달 */}
+      {trialBlocked && <TrialLimitModal onClose={() => onClearTrialBlocked?.()} />}
     </div>
   );
 }

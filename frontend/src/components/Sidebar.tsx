@@ -7,6 +7,7 @@ import { useAlerts } from '../hooks/useAlerts';
 import type { WatchlistResponse } from '../types/api';
 import SearchAutocomplete from './SearchAutocomplete';
 import AlertModal from './AlertModal';
+import TrialBanner from './TrialBanner';
 
 const MENU_ITEMS = [
   { label: 'Market Overview', path: '/' },
@@ -150,41 +151,10 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* Bottom: AI Usage + Settings */}
+      {/* Bottom: Free Trial banner + Settings */}
       <div style={{ padding: `0 ${SPACING.lg}`, marginTop: 'auto' }}>
-        {/* AI Usage */}
-        <div style={{ marginBottom: SPACING.md }}>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              color: theme.text_muted,
-              fontSize: FONT_SIZES.xs,
-              marginBottom: SPACING.xs,
-            }}
-          >
-            <span>AI USAGE</span>
-            <span className="numeric">0/100</span>
-          </div>
-          <div
-            style={{
-              height: '4px',
-              background: theme.border,
-              borderRadius: RADIUS.pill,
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              style={{
-                width: '0%',
-                height: '100%',
-                background: theme.accent,
-                borderRadius: RADIUS.pill,
-                transition: 'width 0.3s ease',
-              }}
-            />
-          </div>
-        </div>
+        {/* Free Trial (Phase 14) — replaces old hardcoded AI USAGE */}
+        <TrialBanner />
 
         {/* Settings */}
         <button

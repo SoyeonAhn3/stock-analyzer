@@ -46,7 +46,7 @@ https://github.com/user-attachments/assets/42a6e030-33c8-4f04-b49e-dd72c07ae4ab
         ├─ 시세 / 재무 / 기술지표 / 히스토리
         │     └─ yfinance + Finnhub + TwelveData + FMP (폴백)
         │
-        ├─ AI Deep Analysis
+        ├─ AI Deep Analysis  (Google 로그인 · 계정당 무료 3회)
         │     ├─ [병렬] News Agent ──┐
         │     ├─ [병렬] Data Agent ──┼─→ 교차 검증 → Analyst Agent
         │     └─ [병렬] Macro Agent ─┘                   │
@@ -76,6 +76,7 @@ https://github.com/user-attachments/assets/42a6e030-33c8-4f04-b49e-dd72c07ae4ab
 | SQLite (WAL) | 데이터 영속화 | 설정 불필요, WAL 모드로 동시 읽기 지원 |
 | Lightweight Charts | 캔들스틱 차트 | 경량 (~40KB), TradingView 수준 품질 |
 | Python asyncio | Agent 오케스트레이션 | 네이티브 병렬 실행, 타임아웃 제어 |
+| Google OAuth (`google-auth` + `@react-oauth/google`) | 무료체험 로그인 게이트 | 검증된 Google `sub`로 계정별 AI 크레딧 식별; 비밀번호 처리 없음 |
 
 ## AI 구성 요소
 
@@ -102,6 +103,7 @@ QuantAI는 Claude API (Sonnet)를 데이터 생성이 아닌 해석에 사용합
 - Python 3.11+
 - Node.js 18+
 - API 키: Finnhub, Twelve Data, FMP, FRED, Anthropic (Claude)
+- Google OAuth 클라이언트 ID — 무료체험 로그인 게이트용 ([Google Cloud Console](https://console.cloud.google.com/apis/credentials))
 
 ### 1. 클론 & 설치
 
@@ -128,6 +130,10 @@ cp .env.example .env
 #   FMP_API_KEY=...
 #   FRED_API_KEY=...
 #   ANTHROPIC_API_KEY=...
+#   GOOGLE_CLIENT_ID=...        # 백엔드 ID 토큰 검증 (무료체험 로그인)
+
+# 프론트엔드도 같은 클라이언트 ID 필요 (로그인 버튼용):
+#   echo "VITE_GOOGLE_CLIENT_ID=..." > frontend/.env
 ```
 
 ### 3. 실행
@@ -154,7 +160,8 @@ npm run dev
 stock-analyzer/
 ├── backend/                    # FastAPI REST API
 │   ├── main.py                 # 앱 진입점, CORS, 라우터 등록
-│   └── routers/                # 9개 라우트 모듈
+│   ├── auth.py                 # Google ID 토큰 검증 (무료체험 로그인)
+│   └── routers/                # 12개 라우트 모듈
 │       ├── quote.py            # /api/quote, fundamentals, technicals, history
 │       ├── market.py           # /api/market (지수, 급등락, 뉴스)
 │       ├── analysis.py         # /api/analysis (5-Agent AI 파이프라인)
@@ -163,7 +170,10 @@ stock-analyzer/
 │       ├── watchlist.py        # /api/watchlist CRUD
 │       ├── guide.py            # /api/guide (초보자 가이드)
 │       ├── search.py           # /api/search (티커 자동완성)
-│       └── alerts.py           # /api/alerts (가격 알림)
+│       ├── alerts.py           # /api/alerts (가격 알림)
+│       ├── portfolio.py        # /api/portfolio CRUD + AI 분석
+│       ├── sync.py             # /api/sync (데이터 동기화)
+│       └── trial.py            # /api/trial (무료체험 크레딧 상태)
 │
 ├── agents/                     # AI Agent 계층
 │   ├── orchestrator.py         # 병렬 실행 + 재시도 + 타임아웃
@@ -192,9 +202,10 @@ stock-analyzer/
 │   ├── package.json
 │   ├── vite.config.ts          # FastAPI 개발 프록시 설정
 │   └── src/
-│       ├── App.tsx             # 라우터 + 레이아웃
+│       ├── App.tsx             # 라우터 + 레이아웃 (Google OAuth + Auth 프로바이더)
+│       ├── auth/               # AuthProvider + useAuth (Google 로그인 상태)
 │       ├── pages/              # 7개 페이지 (MarketOverview, QuickLook 등)
-│       ├── components/         # 16개 재사용 컴포넌트
+│       ├── components/         # 재사용 컴포넌트 (LoginButton, TrialBanner, TrialLimitModal 포함)
 │       ├── hooks/              # 데이터 호출 hooks
 │       ├── theme/              # Dark/Light 테마 시스템
 │       └── types/              # API 응답 TypeScript 타입
@@ -219,7 +230,7 @@ pytest tests/test_phase1_api.py
 pytest tests/test_phase3_ai_analysis.py
 ```
 
-8개 테스트 파일에서 API 통합(실제 API 호출), 데이터 처리, AI Agent 파이프라인 로직을 검증합니다.
+9개 테스트 파일에서 API 통합(실제 API 호출), 데이터 처리, AI Agent 파이프라인 로직, 무료체험 크레딧 지갑(`test_phase14_trial.py`)을 검증합니다.
 
 ## 문서
 
@@ -262,12 +273,19 @@ pytest tests/test_phase3_ai_analysis.py
 | 13 | Portfolio | ✅ 완료 | 보유 종목 관리 + AI 포트폴리오 분석 |
 | 13.5 | 포트폴리오 인증 | ✅ 완료 | 코드+PIN 인증 게이트 + 서버 측 저장 |
 
+### 무료체험 & 다국어 (Phase 14-15)
+
+| Phase | 이름 | 상태 | 핵심 산출물 |
+|:---:|---|:---:|---|
+| 14 | 무료체험 (Google 로그인 게이트) | 🔶 진행 중 | Google 로그인 게이트 무료체험 — 계정당 AI 분석 3회; 크레딧 지갑 + 원장 + reserve/commit(hold) 패턴. 백엔드+프론트 구현 완료(2026-06-16), 브라우저 수동 QA 대기 |
+| 15 | 다국어 (i18n) | 🔲 미시작 | UI + AI 결과 + 가이드 KO/EN 토글 |
+
 ## 한계점
 
 - 무료 API 요금제에 호출 제한 존재 (Finnhub 60/분, Twelve Data 800/일, FMP 250/일)
 - AI 분석에 종목당 1-2분 소요 (순차적 Agent 검증 때문)
 - 자동완성은 S&P 500 종목만 지원 (다른 티커는 직접 입력 가능)
-- 사용자 인증 없음 — 단일 사용자 로컬 또는 배포 인스턴스
+- AI 분석은 Google 로그인 게이트 적용 (계정당 무료 3회); 시세·차트·섹터·비교는 공개. 결제/유료 크레딧은 미구현 (BACKLOG V2-2 예정)
 - WebSocket 실시간 업데이트 없음 — 사용자 액션 시 데이터 갱신
 
 ---

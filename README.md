@@ -46,7 +46,7 @@ User enters ticker (e.g. NVDA)
         ├─ Quote / Fundamentals / Technicals / History
         │     └─ yfinance + Finnhub + TwelveData + FMP (fallback)
         │
-        ├─ AI Deep Analysis
+        ├─ AI Deep Analysis  (Google login · 3 free analyses/account)
         │     ├─ [parallel] News Agent ──┐
         │     ├─ [parallel] Data Agent ──┼─→ Cross-Validation → Analyst Agent
         │     └─ [parallel] Macro Agent ─┘                        │
@@ -79,6 +79,7 @@ User enters ticker (e.g. NVDA)
 | SQLite (WAL) | Persistence | Zero-config, WAL mode for concurrent reads |
 | Lightweight Charts | Candlestick charts | Lightweight (~40KB), TradingView quality |
 | Python asyncio | Agent orchestration | Native parallel execution, timeout control |
+| Google OAuth (`google-auth` + `@react-oauth/google`) | Free-trial login gate | Verified Google `sub` keys per-account AI credits; no password handling |
 
 ## AI Components
 
@@ -106,6 +107,7 @@ QuantAI uses Claude API (Sonnet) for interpretation, not data generation. All nu
 - Python 3.11+
 - Node.js 18+
 - API keys: Finnhub, Twelve Data, FMP, FRED, Anthropic (Claude)
+- Google OAuth client ID — for the free-trial login gate ([Google Cloud Console](https://console.cloud.google.com/apis/credentials))
 
 ### 1. Clone & install
 
@@ -132,6 +134,10 @@ cp .env.example .env
 #   FMP_API_KEY=...
 #   FRED_API_KEY=...
 #   ANTHROPIC_API_KEY=...
+#   GOOGLE_CLIENT_ID=...        # backend ID-token verification (free-trial login)
+
+# Frontend also needs the same client ID for the login button:
+#   echo "VITE_GOOGLE_CLIENT_ID=..." > frontend/.env
 ```
 
 ### 3. Run
@@ -158,7 +164,8 @@ Open `http://localhost:5173` in your browser. The Vite dev server proxies `/api`
 stock-analyzer/
 ├── backend/                    # FastAPI REST API
 │   ├── main.py                 # App entry, CORS, router registration
-│   └── routers/                # 11 route modules
+│   ├── auth.py                 # Google ID token verification (free-trial login)
+│   └── routers/                # 12 route modules
 │       ├── quote.py            # /api/quote, fundamentals, technicals, history
 │       ├── market.py           # /api/market (indices, movers, news)
 │       ├── analysis.py         # /api/analysis (5-agent AI pipeline)
@@ -169,7 +176,8 @@ stock-analyzer/
 │       ├── search.py           # /api/search (ticker autocomplete)
 │       ├── alerts.py           # /api/alerts (price alerts)
 │       ├── portfolio.py        # /api/portfolio CRUD + AI analysis
-│       └── sync.py             # /api/sync (data sync)
+│       ├── sync.py             # /api/sync (data sync)
+│       └── trial.py            # /api/trial (free-trial credit status)
 │
 ├── agents/                     # AI agent layer
 │   ├── orchestrator.py         # Parallel execution + retry + timeout
@@ -198,9 +206,10 @@ stock-analyzer/
 │   ├── package.json
 │   ├── vite.config.ts          # Dev proxy to FastAPI
 │   └── src/
-│       ├── App.tsx             # Router + layout
+│       ├── App.tsx             # Router + layout (Google OAuth + Auth providers)
+│       ├── auth/               # AuthProvider + useAuth (Google login state)
 │       ├── pages/              # 8 pages (MarketOverview, QuickLook, Portfolio, etc.)
-│       ├── components/         # 20+ reusable components
+│       ├── components/         # 20+ reusable components (incl. LoginButton, TrialBanner, TrialLimitModal)
 │       ├── hooks/              # Data-fetching hooks
 │       ├── services/           # API service modules
 │       ├── theme/              # Dark/Light theme system
@@ -226,7 +235,7 @@ pytest tests/test_phase1_api.py
 pytest tests/test_phase3_ai_analysis.py
 ```
 
-Tests cover API integration (real API calls), data processing, and AI agent pipeline logic across 8 test files.
+Tests cover API integration (real API calls), data processing, AI agent pipeline logic, and the free-trial credit wallet (`test_phase14_trial.py`) across 9 test files.
 
 ## Documentation
 
@@ -270,12 +279,19 @@ Tests cover API integration (real API calls), data processing, and AI agent pipe
 | 13 | Portfolio | ✅ Done | Holdings tracking + AI portfolio analysis |
 | 13.5 | Portfolio Authentication | ✅ Done | Code+PIN auth gate + server-side storage |
 
+### Free Trial & Internationalization (Phase 14-15)
+
+| Phase | Name | Status | Deliverable |
+|:---:|---|:---:|---|
+| 14 | Free Trial (Google Login Gate) | 🔶 In Progress | Google-login-gated free trial — 3 AI analyses/account; credit wallet + ledger + reserve/commit (hold) pattern. Backend + frontend implemented (2026-06-16); browser manual QA pending |
+| 15 | Internationalization (i18n) | 🔲 Not Started | KO/EN toggle for UI + AI results + guide content |
+
 ## Limitations
 
 - Free API tiers have rate limits (Finnhub 60/min, Twelve Data 800/day, FMP 250/day)
 - AI analysis takes 1-2 minutes per ticker due to sequential agent validation
 - S&P 500 stocks only for autocomplete (other tickers can be entered manually)
-- No user authentication — single-user local or deployed instance
+- AI analysis is gated by Google login (3 free analyses per account); quotes, charts, sectors, and compare stay public. Payments / paid credits are not implemented yet (planned in BACKLOG V2-2)
 - No WebSocket real-time updates — data refreshes on user action
 
 ---

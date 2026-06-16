@@ -112,6 +112,8 @@ export default function QuickLook() {
         error={analysis.error}
         cachedAt={analysis.cachedAt}
         onTrigger={(force) => analysis.trigger(force)}
+        trialBlocked={analysis.trialBlocked}
+        onClearTrialBlocked={analysis.clearTrialBlocked}
       />
     </div>
   );

@@ -1,100 +1,136 @@
-# Phase 14 — Free Trial (Google Login Gate) System `🔶 In Progress (Backend Done)`
+# Phase 14 — Free Trial (Google Login Gate) System `🔶 In Progress (Implemented, Manual QA Pending)`
 
-> Google-login-gated free trial: AI analysis requires sign-in, granting 3 free analyses per account. Other features (quotes, charts, sectors) remain open. Wallet/ledger infra reused as-is for future paid tier.
+> Google-login-gated free trial: AI analysis requires sign-in, granting **3 free analyses per account**. Other features (quotes, charts, sectors, compare) remain open. The wallet/ledger/hold core is reused as-is for the future paid tier.
 
-**Status**: 🔶 In Progress — Backend wallet core ✅ Done (2026-06-09) · Google auth pivot + Frontend 🔲 Not Started (2026-06-15 결정)
+**Status**: 🔶 In Progress — Backend + Frontend ✅ Implemented (2026-06-16) · Browser manual QA 🔲 Pending
 **Prerequisites**: Phase 13 completed (Portfolio), Phase 13.5 completed (Portfolio Auth)
 
-> **⚠️ 설계 변경 (2026-06-15 결정) — 이메일 인증 → Google 로그인 피벗**
-> 당초 "익명 3회 + 이메일 인증 +3회(총 6회)" 하이브리드 설계였으나, 아래로 변경한다:
-> - **인증 방식**: 이메일 6자리 코드 → **Google OAuth 로그인** (SMTP/코드발송 불필요, UX 단순, V2-2 유료계정으로 직결)
-> - **무료 제공량**: 익명3+이메일3=6회 → **로그인 시 3회**
-> - **게이트 범위**: 앱 전체 아님 → **"AI 분석" 버튼 클릭 시에만** 로그인 요구. 시세·차트·섹터·비교는 비로그인 사용 유지
-> - **신원 식별**: `X-Device-Id`(localStorage UUID) → **Google `sub`(검증된 ID 토큰)**. 지갑/원장/hold 코어는 그대로 재사용, 신원 키만 교체
-> - **UI**: 분석 버튼 옆 "n회 남음" 표시 안 함 (사이드바 배너에만 노출)
-> - **폐기**: 이메일 발송기(`email_sender.py`), `email_verification` 테이블, `/trial/request-code`·`/trial/verify` 엔드포인트 → 미사용
-> - 사내망 차단 환경은 이번 범위에서 고려하지 않음 (Google 접속 전제)
+> **⚠️ Design pivot (decided 2026-06-15) — Email verification → Google login**
+> The original design was a hybrid "anonymous 3 + email-verified +3 (6 total)". It is replaced by:
+> - **Auth method**: 6-digit email code → **Google OAuth login** (no SMTP/code sending, simpler UX, direct path to the V2-2 paid account)
+> - **Free grant**: anonymous 3 + email 3 = 6 → **3 on login**
+> - **Gate scope**: not the whole app → login is required **only when clicking "AI 분석"**. Quotes, charts, sectors, and compare stay usable without login
+> - **Identity**: `X-Device-Id` (localStorage UUID) → **Google `sub` (verified ID token)**. The wallet/ledger/hold core is reused unchanged; only the identity key value is swapped
+> - **UI**: no "n left" next to the analyze button (shown only in the sidebar banner)
+> - **Removed**: email sender (`email_sender.py`), the `email_verification` table, and the `/trial/request-code`·`/trial/verify` endpoints
+> - Corporate-network blocking is out of scope here (Google reachability assumed)
 >
-> **⚠️ 설계 노트 (2026-06-09 결정 — 유효)**: 이 Phase는 단순 카운터가 아니라 **"크레딧 지갑 + 거래 원장 + 예약-확정(hold) 패턴"** 구조로 구현한다. 무료 크레딧은 이 지갑의 초기 잔액으로 충전된다. **실제 결제(PG)·선불 크레딧 판매는 [`BACKLOG.md` V2-2](../BACKLOG.md)로 분리** — Phase 14에서 지은 지갑에 "충전" 동작만 얹는 형태로 설계할 것. 과금 모델: AI 분석 1회 = 1크레딧 차감(포트폴리오/개별주/다중 비교 공통), 캐시 히트 무차감.
+> **⚠️ Design note (decided 2026-06-09 — still valid)**: This Phase is implemented as a **"credit wallet + transaction ledger + reserve-commit (hold) pattern"**, not a simple counter. Free credits are the wallet's initial balance. **Real payment (PG) / prepaid credit sales are split into [`BACKLOG.md` V2-2](../BACKLOG.md)** — designed so the wallet built here only needs a "top-up" action added. Billing model: 1 AI analysis = 1 credit (same for portfolio / single stock / multi-compare); cache hits are free.
 
 ---
 
 ## Overview
 
-The app currently has no per-user tracking — all API endpoints are public with only a global 100/day AI call limit. This Phase introduces a **Google-login-gated** free trial system:
+The app has no per-user tracking — all API endpoints are public with only a global 100/day AI call limit. This Phase introduces a **Google-login-gated** free trial:
 
 1. **Open features**: Quotes, charts, sector screening, compare — usable without login (unchanged)
 2. **Gated feature**: Clicking "AI 분석" requires Google sign-in; each account gets **3 free analyses**
 3. **Cache hits are free**: Only fresh AI pipeline executions count toward the trial limit
 
-**Identity**: Google ID token (`Authorization: Bearer`) verified server-side; the token's `sub` keys the credit wallet. **Migration path**: Free → Paid (V2-2) adds a `topup` ledger type to the same wallet — no redesign.
+**Identity**: A Google ID token (`Authorization: Bearer <token>`) is verified server-side; the token's `sub` keys the credit wallet. Because `sub` is signed by Google, it cannot be forged — and unlike a device UUID, **clearing localStorage and re-logging-in returns the same wallet** (credits do not reset).
+
+**Migration path**: Free → Paid (V2-2) adds a `topup` ledger type to the same wallet — no redesign.
 
 ---
 
 ## Deliverables
 
-> 표는 **2026-06-15 Google 로그인 피벗** 반영본. 이메일 단계(구 ②·⑩)는 제거, Google 인증 단계로 대체.
-
 | # | Module | Status | Type | Est. Hours |
 |---|---|---|---|---|
-| 1 | DB Schema (wallets + ledger) — `email_verification` 미사용 | ✅ | backend | 0.5h |
-| 2 | Trial Service (지갑/원장/hold 코어) — `request_verification`/`verify_code` 폐기 | ✅* | backend | 2h |
-| 3 | Trial API Router — `/trial/status`만 유지 (request-code/verify 제거) | 🔶 | backend | 0.5h |
-| 4 | Analysis Trial Gate — `X-Device-Id` → 검증된 Google `sub`, 게이트 상시 적용 | 🔶 | backend | 1h |
-| 5 | Backend Google Token Verify (`backend/auth.py` 신규, `google-auth`) | 🔲 | backend | 1.5h |
-| 6 | Frontend Auth — `@react-oauth/google` + `GoogleOAuthProvider` + `useAuth` | 🔲 | frontend | 2h |
-| 7 | useAnalysis Hook — `Authorization` 헤더 + 429 → `trialBlocked` | 🔲 | frontend | 1h |
-| 8 | LoginButton Component | 🔲 | frontend | 0.5h |
-| 9 | TrialBanner Component (남은 횟수 + 유저 + 로그아웃, Sidebar 교체) | 🔲 | frontend | 1h |
-| 10 | TrialLimitModal Component (단일 변형 "3회 소진, 프리미엄 준비중") | 🔲 | frontend | 0.5h |
-| 11 | Gate Wiring (AiAnalysisInline 두 버튼: 비로그인 시 로그인 우선) | 🔲 | frontend | 1h |
-| 12 | Integration Test + QA | 🔲 | general | 1.5h |
+| 1 | DB Schema (wallets + ledger) — `email_verification` unused | ✅ | backend | 0.5h |
+| 2 | Trial Service (wallet/ledger/hold core) — email functions removed | ✅ | backend | 2h |
+| 3 | Trial API Router — only `/trial/status` (request-code/verify removed) | ✅ | backend | 0.5h |
+| 4 | Analysis Trial Gate — `X-Device-Id` → verified Google `sub`, always gated | ✅ | backend | 1h |
+| 5 | Backend Google Token Verify (`backend/auth.py`, `google-auth`) | ✅ | backend | 1.5h |
+| 6 | Frontend Auth — `@react-oauth/google` + `GoogleOAuthProvider` + `useAuth` | ✅ | frontend | 2h |
+| 7 | useAnalysis Hook — `Authorization` header + 429 → `trialBlocked` | ✅ | frontend | 1h |
+| 8 | LoginButton Component | ✅ | frontend | 0.5h |
+| 9 | TrialBanner Component (remaining + user + logout, replaces Sidebar AI USAGE) | ✅ | frontend | 1h |
+| 10 | TrialLimitModal Component (single variant: "3 used up, premium coming") | ✅ | frontend | 0.5h |
+| 11 | Gate Wiring (AiAnalysisInline two buttons: login-first when signed out) | ✅ | frontend | 1h |
+| 12 | Integration Test + QA | 🔶 | general | 1.5h |
 
-**Total: ~13 hours** · `*`코어 로직 완료, 초기 잔액 6→3 + 이메일 함수 정리 필요
+**Total: ~13 hours** · Backend (#1–5) ✅ + Frontend (#6–11) ✅ Done (2026-06-16) · #12 manual browser QA pending
 
-### 구현 현황 (2026-06-15 기준)
+### Implementation status (as of 2026-06-16)
 
-**✅ 재사용 (백엔드 지갑 코어, 2026-06-09 구축)** — commits `44fb375`, `79614da`
-- `data/database.py` — `wallets` / `ledger` 테이블 (지갑/원장 그대로 재사용)
-- `services/trial_service.py` — `reserve`/`commit`/`release`/`get_status` (hold 패턴) 재사용
+**✅ Backend done (PHASE A — Google login pivot)**
+- `data/database.py` — `wallets` / `ledger` tables (wallet/ledger reused, no schema change)
+- `services/trial_service.py` — `reserve`/`commit`/`release`/`get_status` (hold pattern). Email functions (`request_verification`/`verify_code`), the `email_sender` import, `EMAIL_BONUS`, and code constants all removed; `_status_dict` → `{balance, held, available}`; the identity key (`device_id` column) now stores the Google `sub`; `INITIAL_CREDITS=3`
+- `backend/auth.py` (new) — Google ID token verification via `google-auth`. `verify_google_token()` + FastAPI dependency `get_current_user()` (Bearer header → `sub`/`email`/`name`/`picture`; 401 on missing/malformed/invalid). `GOOGLE_CLIENT_ID` env for audience check
+- `backend/routers/analysis.py` — `user = Depends(get_current_user)`, **always gated** (login required), `sub`-based reserve/commit/release, cache hits free
+- `backend/routers/trial.py` — `request-code`/`verify` removed, only token-based `/trial/status`
+- `requirements.txt` — `google-auth>=2.28.0` · `.env.example` — `GOOGLE_CLIENT_ID` / `VITE_GOOGLE_CLIENT_ID`
+- `tests/test_phase14_trial.py` (new) — wallet reserve/commit/release/429/idempotency/account-isolation + `get_current_user` 401 paths: **12 tests pass**
 
-**🔶 수정 필요 (피벗 반영)**
-- `services/trial_service.py` — `_ensure_wallet` 초기 잔액 **6 → 3**, 이메일 인증 함수 폐기
-- `backend/routers/trial.py` — `request-code`/`verify` 제거, `/status`를 토큰 기반으로
-- `backend/routers/analysis.py` — 신원 키 `X-Device-Id` → Google `sub`, 게이트 상시 적용
+**✅ Frontend done (PHASE B — 2026-06-16)**
+- `@react-oauth/google` installed; `App.tsx` wrapped in `<GoogleOAuthProvider>` + `<AuthProvider>`
+- `frontend/src/config.ts` — `GOOGLE_CLIENT_ID` export
+- `frontend/src/auth/AuthProvider.tsx` (new) — `AuthProvider` + `useAuth`; stores the Google ID token in localStorage, decodes the JWT payload for display, drops expired tokens
+- `frontend/src/components/LoginButton.tsx` (new) — `@react-oauth/google` `<GoogleLogin>` wrapper (theme-aware)
+- `frontend/src/components/TrialBanner.tsx` (new) — sidebar: login CTA when signed out; user + remaining count + progress bar + logout when signed in; fetches `/trial/status` and refreshes on the `trial-changed` event
+- `frontend/src/components/TrialLimitModal.tsx` (new) — single-variant modal on HTTP 429 (AlertModal pattern)
+- `frontend/src/hooks/useAnalysis.ts` — `Authorization: Bearer` + `X-Request-Id` (`crypto.randomUUID`), 429 → `trialBlocked`, 401 → session-expired error, dispatches `trial-changed` on success; returns `trialBlocked`/`clearTrialBlocked`
+- `frontend/src/components/Sidebar.tsx` — hardcoded "AI USAGE 0/100" → `<TrialBanner />`
+- `frontend/src/components/AiAnalysisInline.tsx` — `useAuth` gate (both buttons login-first when signed out), `TrialLimitModal` on `trialBlocked`, re-analyze confirm reworded to "uses 1 free analysis"
+- `frontend/src/pages/QuickLook.tsx` — passes `trialBlocked` / `onClearTrialBlocked`
+- Verified: `tsc -b` type-check + `vite build` (80 modules) pass; backend live check — `/trial/status` & `POST /analysis` return 401 without/with-invalid token
 
-**🔲 신규 (미착수)**
-- 백엔드: `backend/auth.py` (Google ID 토큰 검증)
-- 프론트: `useAuth` / `LoginButton` / `TrialBanner` / `TrialLimitModal` + 게이트 와이어링
+**🔲 Remaining — manual browser QA (#12)**
+- Sign in with Google → run analysis → banner shows remaining → exhaust 3 → TrialLimitModal → re-login same account keeps credits
 
-**🗑️ 폐기 (미사용 전환)** — `services/email_sender.py`, `email_verification` 테이블
+**🗑️ Removed (transitioned to unused)** — `services/email_sender.py` (**deleted** 2026-06-16), `email_verification` table (kept in schema, unused)
 
-**🔑 선행 필요**: Google Cloud OAuth 클라이언트 ID 발급 → `.env`의 `VITE_GOOGLE_CLIENT_ID`
+**🔑 Prerequisite ✅ Done**: Google Cloud OAuth client ID issued → `.env` `GOOGLE_CLIENT_ID` + `frontend/.env` `VITE_GOOGLE_CLIENT_ID` set
+
+---
+
+## Architecture / Data Flow
+
+```
+Frontend (signed in with Google)
+  → POST /api/analysis/{ticker}
+     Authorization: Bearer <Google ID token>
+     X-Request-Id: <uuid>   (idempotency key)
+        │
+        ▼
+  get_current_user  ── verify token ──► sub  (401 if invalid/missing)
+        │
+        ▼
+  Cache hit? ── yes ──► return (free, no credit)
+        │ no
+        ▼
+  reserve_credit(sub, ref_id)
+        │   no credit → HTTP 429 {error:"trial_limit_reached", available:0, ...}
+        ▼
+  run 5-agent pipeline
+        ├─ exception / all agents fail → release_credit (refund)
+        └─ success → save cache → commit_credit (balance-1)
+        ▼
+  response { ...analysis, wallet:{balance,held,available} }
+```
 
 ---
 
 ## 1. DB Schema
 
 ### Purpose
+Per-account credit **wallet** + an append-only **ledger** (audit trail of every credit movement). Both already exist from the 2026-06-09 build and are reused unchanged. The `device_id` column is kept as the primary key but now holds the Google `sub` — no migration needed.
 
-Add three tables to SQLite: a per-device credit **wallet**, an append-only **ledger** (audit trail of every credit movement), and **email_verification** for code management. This is the "wallet" structure agreed on 2026-06-09 — not a single counter.
-
-### Implementation Files
-
+### Files
 | File | Change |
 |------|--------|
-| `data/database.py` | Add `wallets` + `ledger` + `email_verification` tables to `CREATE_TABLES_SQL` |
+| `data/database.py` | `wallets` + `ledger` tables in `CREATE_TABLES_SQL` (already present). `email_verification` table kept but unused. |
 
 ### Schema
-
 ```sql
--- Per-device credit wallet (one row per device)
+-- Per-account credit wallet (one row per Google sub). available = balance - held
 CREATE TABLE IF NOT EXISTS wallets (
-    device_id TEXT PRIMARY KEY,
-    balance INTEGER DEFAULT 3,        -- granted credits (anonymous starts with 3)
-    held INTEGER DEFAULT 0,           -- credits locked during in-flight analysis
-    email TEXT UNIQUE,
-    email_verified INTEGER DEFAULT 0,
+    device_id TEXT PRIMARY KEY,        -- holds the verified Google sub
+    balance INTEGER DEFAULT 3,         -- granted credits (3 on first login)
+    held INTEGER DEFAULT 0,            -- credits locked during in-flight analysis
+    email TEXT UNIQUE,                 -- legacy column (unused after pivot)
+    email_verified INTEGER DEFAULT 0,  -- legacy column (unused after pivot)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -103,319 +139,205 @@ CREATE TABLE IF NOT EXISTS wallets (
 CREATE TABLE IF NOT EXISTS ledger (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     device_id TEXT NOT NULL,
-    type TEXT NOT NULL,               -- 'grant' | 'hold' | 'commit' | 'release' | (V2: 'topup')
-    amount INTEGER NOT NULL,          -- signed delta (+3 grant, +1 hold, -1 commit, -1 release...)
-    ref_id TEXT,                      -- idempotency key (one per analysis request)
+    type TEXT NOT NULL CHECK(type IN ('grant','hold','commit','release','topup')),
+    amount INTEGER NOT NULL,           -- signed delta (+3 grant, +1 hold, -1 commit/release)
+    ref_id TEXT,                       -- idempotency key (one per analysis request)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (device_id) REFERENCES wallets(device_id)
 );
 
-CREATE TABLE IF NOT EXISTS email_verification (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    device_id TEXT NOT NULL,
-    email TEXT NOT NULL,
-    code TEXT NOT NULL,
-    attempts INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP NOT NULL,
-    FOREIGN KEY (device_id) REFERENCES wallets(device_id)
-);
+CREATE INDEX IF NOT EXISTS idx_ledger_ref_id ON ledger(ref_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_device_id ON ledger(device_id);
 ```
 
-### Key Formula
+### Key formula
+**Available credits = `balance - held`** — held credits are excluded from what can be spent. This one formula drives the gate.
 
-**Available credits = `balance - held`** — locked (held) credits are excluded from what can be spent. This single formula drives the gate in §5.
-
-### Design Decisions
-
+### Design decisions
 - Credits are **lifetime** (not daily) — independent of the global 100/day limit in `utils/usage_tracker.py`
-- **Wallet + ledger instead of one counter**: the ledger is an append-only audit trail, so "charged but got no result" disputes can be proven. Mandatory once credits become real money in V2-2 (payment)
-- `balance` + `held` enable the **reserve → commit/release (hold) pattern** (§5) — both concurrency-safe and refund-safe
-- `email UNIQUE` prevents one email earning +3 across multiple devices
-- Email verification grants **+3** (`balance += 3` via a `grant` ledger row), lifting anonymous 3 → 6
-- `ref_id` on ledger rows = **idempotency key**: a retried request with the same ref_id is never charged twice
-- `CREATE TABLE IF NOT EXISTS` — no migration needed, tables appear on next `init_db()` call
-- **Paid extension (V2-2)**: add a `topup` ledger type doing `balance += purchased`. No schema redesign — see [`BACKLOG.md` V2-2](../BACKLOG.md)
+- **Wallet + ledger instead of one counter**: the ledger proves "charged but no result" disputes — mandatory once credits become money in V2-2
+- `balance` + `held` enable the **reserve → commit/release** pattern — concurrency-safe and refund-safe
+- `ref_id` = **idempotency key**: a retried request with the same ref_id is never charged twice
+- **Paid extension (V2-2)**: add a `topup` ledger type doing `balance += purchased` — no redesign
 
 ---
 
-## 2. Email Sender (Pluggable)
+## 2. Trial Service
 
 ### Purpose
+Core wallet lifecycle: reserve → commit/release with idempotency. No email logic.
 
-Pluggable email sending module that defaults to console output for development, switchable to SMTP for production.
-
-### Implementation Files
-
+### Files
 | File | Change |
 |------|--------|
-| `services/email_sender.py` | **New** — `send_verification_email(email, code) → bool` |
-
-### Core Logic
-
-- Reads `EMAIL_BACKEND` env var: `"console"` (default) or `"smtp"`
-- Console mode: logs 6-digit code to stdout
-- SMTP mode: uses `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` env vars
-
----
-
-## 3. Trial Service
-
-### Purpose
-
-Core business logic for trial user management, usage tracking, and email verification.
-
-### Implementation Files
-
-| File | Change |
-|------|--------|
-| `services/trial_service.py` | **New** — wallet lifecycle functions (reserve/commit/release + verification) |
+| `services/trial_service.py` | Wallet lifecycle functions. `INITIAL_CREDITS=3`. |
 
 ### Functions
-
 | Function | Role |
 |----------|------|
-| `get_or_create_user(device_id)` | Lookup/create wallet. `INSERT OR IGNORE`, initial `balance=3` + `grant` ledger row |
-| `reserve_credit(device_id, ref_id)` | **Atomic hold**: `UPDATE wallets SET held = held + 1 WHERE device_id = ? AND (balance - held) >= 1`. 0 rows affected → no credit. Writes a `hold` ledger row. Idempotent: if `ref_id` is already held, returns the existing hold instead of holding again |
-| `commit_credit(device_id, ref_id)` | **On success**: `UPDATE wallets SET balance = balance - 1, held = held - 1 WHERE device_id = ?`. Writes a `commit` ledger row |
-| `release_credit(device_id, ref_id)` | **On failure (refund)**: `UPDATE wallets SET held = held - 1 WHERE device_id = ?`. Writes a `release` ledger row |
-| `request_verification(device_id, email)` | Generate 6-digit code, store in DB, send via email_sender. 10-min expiry |
-| `verify_code(device_id, email, code)` | Verify code; on success `balance += 3` (a `grant` ledger row) + set `email_verified=1`. Max 3 wrong attempts per code |
-| `get_status(device_id)` | Read-only status: `balance`, `held`, `available` (=balance-held), `email_verified`, tier |
+| `get_or_create_user(sub)` | Lookup/create wallet. `INSERT OR IGNORE`, initial `balance=3` + a `grant` ledger row |
+| `get_status(sub)` | Read-only status: `{balance, held, available}` |
+| `reserve_credit(sub, ref_id)` | **Atomic hold**: `UPDATE wallets SET held = held + 1 WHERE device_id = ? AND (balance - held) >= 1`. 0 rows → no credit. Writes a `hold` row. Idempotent on `ref_id` |
+| `commit_credit(sub, ref_id)` | **On success**: `balance = balance - 1, held = held - 1`. Writes a `commit` row |
+| `release_credit(sub, ref_id)` | **On failure (refund)**: `held = held - 1`. Writes a `release` row |
 
-### Concurrency Safety
+### Concurrency & idempotency
+- `UPDATE ... WHERE (balance - held) >= 1` is **atomic** in SQLite WAL — concurrent requests can never oversell
+- `INSERT OR IGNORE` handles first-time wallet creation races
+- Each ledger write checks for an existing row with the same `(sub, ref_id, type)` first → retries reuse the existing hold/commit/release instead of double-acting
 
-- `UPDATE wallets SET held = held + 1 WHERE device_id = ? AND (balance - held) >= 1` is **atomic** in SQLite WAL mode — concurrent requests can never oversell; only as many holds succeed as there are available credits, the rest get 0 rows → 429
-- `INSERT OR IGNORE` handles race conditions on first-time wallet creation
-- **Idempotency**: the `ref_id` (one per analysis request) means a retried/duplicated request reuses its existing hold instead of charging twice
+---
+
+## 3. Backend Google Token Verify
+
+### Purpose
+Verify the Google ID token sent by the frontend and expose the verified identity as a FastAPI dependency. Replaces the old email-sender module.
+
+### Files
+| File | Change |
+|------|--------|
+| `backend/auth.py` | **New** — `verify_google_token()` + `get_current_user()` dependency |
+
+### Core logic
+```python
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")  # audience; None skips check (dev only)
+
+def verify_google_token(token: str) -> dict:
+    info = id_token.verify_oauth2_token(token, _transport, GOOGLE_CLIENT_ID or None)
+    return {"sub": info["sub"], "email": info.get("email"),
+            "name": info.get("name"), "picture": info.get("picture")}
+
+def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
+    # "Bearer <token>" → verify → user dict; else HTTPException(401)
+```
+
+### Design decisions
+| Decision | Choice | Reason |
+|----------|--------|--------|
+| Token delivery | `Authorization: Bearer` header | HTTP standard |
+| Verification | `google-auth` `verify_oauth2_token` | Validates Google signature + expiry + audience |
+| Missing/invalid token | HTTP 401 | Frontend prompts login |
+| `GOOGLE_CLIENT_ID` unset | audience check skipped (dev) | Production must set it |
 
 ---
 
 ## 4. Trial API Router
 
 ### Purpose
+Expose only the wallet status. Reserve/commit/release are internal to the analysis endpoint, not user-callable.
 
-REST endpoints for trial status checking, email verification code request, and code verification.
-
-### Implementation Files
-
+### Files
 | File | Change |
 |------|--------|
-| `backend/routers/trial.py` | **New** — 3 endpoints |
-| `backend/main.py` | Add trial router import + registration |
+| `backend/routers/trial.py` | `/trial/status` only (request-code/verify removed) |
+| `backend/main.py` | trial router registered (already present) |
 
 ### Endpoints
-
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/trial/status` | GET | Current trial status for device |
-| `/api/trial/request-code` | POST | Send verification code to email |
-| `/api/trial/verify` | POST | Verify 6-digit code |
-
-All endpoints require `X-Device-Id` header (FastAPI `Header(...)` auto-extraction).
+| `/api/trial/status` | GET | Wallet status for the logged-in account (`Depends(get_current_user)` → `get_status(sub)`) |
 
 ---
 
 ## 5. Analysis Endpoint Trial Gate
 
 ### Purpose
+Require login and run the reserve → commit/release flow around the AI pipeline.
 
-Insert a trial usage check between cache lookup and AI pipeline execution in the analysis endpoint.
-
-### Implementation Files
-
+### Files
 | File | Change |
 |------|--------|
-| `backend/routers/analysis.py` | Add `X-Device-Id` header param + trial gate logic |
+| `backend/routers/analysis.py` | `user = Depends(get_current_user)` + gate logic |
 
-### Modified Flow (reserve → run → commit/release)
-
+### Flow (reserve → run → commit/release)
 ```
-Before: Cache check → Data fetch → AI pipeline → Cache save
-After:  Cache check → [reserve credit] → Data fetch → AI pipeline
-                          → success: [commit]  → Cache save
-                          → failure: [release] (refund)
+Login required (get_current_user) → Cache check (free) → reserve →
+    success: commit → save cache
+    hard failure / exception: release (refund)
 ```
-
-- **Cache hits return before reserve** — free, no credit consumed
-- `ref_id` (per-request idempotency key) is generated/echoed so a retried request reuses its hold instead of double-charging
-- `reserve_credit` fails (no available credit) → HTTP 429 with `{ error: "trial_limit_reached", balance, available, email_registered }`
-- **Hard failure** (all 3 agents fail / exception / timeout) → `release_credit` (refund). **Partial success** (1–2 agents fail, result still produced) → `commit_credit`
-- `X-Device-Id` is `Optional[str]` for backward compatibility (migration to required = email-only mode)
-- Successful analysis includes wallet status (`balance`, `available`) in the response body
+- **Cache hits return before reserve** — free (login still required to reach the endpoint)
+- `reserve_credit` fails → HTTP 429 `{error:"trial_limit_reached", reason:"no_credit", balance, held, available}`
+- **Hard failure** (all agents fail / exception / timeout) → `release_credit` (refund). **Partial success** (1–2 agents fail, result produced) → `commit_credit`
+- `X-Request-Id` = idempotency key; auto-generated if absent
+- The success response includes `wallet` (`balance`, `held`, `available`)
 
 ---
 
-## 6. Frontend — Device ID + Trial API Client
+## 6. Frontend — Auth (`useAuth`)
 
 ### Purpose
+Sign in with Google, persist the ID token, and expose user/auth state.
 
-Generate and persist a unique device identifier, and provide typed API functions for trial endpoints.
-
-### Implementation Files
-
+### Files
 | File | Change |
 |------|--------|
-| `frontend/src/services/deviceId.ts` | **New** — `getDeviceId()` using `crypto.randomUUID()` + localStorage |
-| `frontend/src/services/trialApi.ts` | **New** — `fetchTrialStatus()`, `requestVerificationCode()`, `verifyEmailCode()` |
+| `frontend/package.json` | Add `@react-oauth/google` |
+| `frontend/src/main.tsx` (or `App.tsx`) | Wrap app in `<GoogleOAuthProvider clientId={VITE_GOOGLE_CLIENT_ID}>` |
+| `frontend/src/hooks/useAuth.ts` | **New** — token + user state, login/logout, localStorage persistence |
 
-### Device ID Strategy
-
-- UUID v4 generated via `crypto.randomUUID()` (supported in all modern browsers)
-- Stored in localStorage under `quantai_device_id`
-- All trial API calls include `X-Device-Id` header automatically
+### Behavior
+- On Google login success, store the ID token (localStorage `quantai_token`) + decoded profile
+- Expose `{ user, token, isLoggedIn, login, logout }`
+- Token attached to API calls as `Authorization: Bearer <token>`
 
 ---
 
-## 7. useTrial Hook
+## 7. useAnalysis Hook
 
-### Purpose
-
-React hook managing trial state with auto-refresh on analysis completion.
-
-### Implementation Files
-
+### Files
 | File | Change |
 |------|--------|
-| `frontend/src/hooks/useTrial.ts` | **New** — trial state management hook |
-
-### Core Behavior
-
-- Fetches `GET /api/trial/status` on mount
-- Listens for `trial-status-changed` CustomEvent (dispatched after successful analysis)
-- Returns `{ status, loading, refreshStatus }`
-
----
-
-## 8. useAnalysis Hook Modification
-
-### Purpose
-
-Add device identification headers and trial limit handling to the existing analysis hook.
-
-### Implementation Files
-
-| File | Change |
-|------|--------|
-| `frontend/src/hooks/useAnalysis.ts` | Add X-Device-Id header, 429 handling, event dispatch |
+| `frontend/src/hooks/useAnalysis.ts` | Add `Authorization` header, 429 handling, `trialBlocked` state |
 
 ### Changes
-
-1. **Line 35**: Add `headers: { 'X-Device-Id': getDeviceId() }` to fetch call
-2. **New state**: `trialBlocked` — set when HTTP 429 with `trial_limit_reached`
-3. **Post-success**: Dispatch `trial-status-changed` CustomEvent
-4. **Return**: Add `trialBlocked` to hook return value
-
----
-
-## 9. TrialBanner Component
-
-### Purpose
-
-Sidebar widget showing remaining trial uses and email registration prompt.
-
-### Implementation Files
-
-| File | Change |
-|------|--------|
-| `frontend/src/components/TrialBanner.tsx` | **New** — trial status display |
-| `frontend/src/components/Sidebar.tsx` | Replace hardcoded "AI USAGE 0/100" (lines 154-187) with `<TrialBanner />` |
-
-### UI Spec
-
-- "FREE TRIAL" label (xs, muted text)
-- Remaining count in numeric font with accent color (e.g., "2/3 remaining")
-- 4px progress bar with theme.accent fill
-- Anonymous tier: "Get +3 more with email" link → opens EmailRegistrationModal
-- Email tier: checkmark + "Email verified" text
+1. Add `headers: { Authorization: 'Bearer ' + token, 'X-Request-Id': uuid }`
+2. New state `trialBlocked` — set on HTTP 429 `trial_limit_reached`
+3. After success, refresh trial status (banner)
+4. Return `trialBlocked`
 
 ---
 
-## 10. EmailRegistrationModal Component
+## 8. LoginButton + TrialBanner
 
-### Purpose
-
-Two-step modal for email registration and verification code entry.
-
-### Implementation Files
-
+### Files
 | File | Change |
 |------|--------|
-| `frontend/src/components/EmailRegistrationModal.tsx` | **New** — email verification flow modal |
+| `frontend/src/components/LoginButton.tsx` | **New** — Google login/logout button |
+| `frontend/src/components/TrialBanner.tsx` | **New** — sidebar widget |
+| `frontend/src/components/Sidebar.tsx` | Replace hardcoded "AI USAGE 0/100" with `<TrialBanner />` |
 
-### UI Flow
-
-**Step 1 — Email Input:**
-- Heading: "Get 3 More Free Analyses"
-- Email input field
-- "Send Code" button
-
-**Step 2 — Code Input:**
-- Heading: "Enter Verification Code"
-- 6-digit code input (numeric, centered)
-- "Verify" button
-- "Resend code" link (60-second cooldown timer)
-- Error display for wrong/expired codes
-
-### Modal Pattern
-
-- Fixed overlay `rgba(0,0,0,0.5)`, zIndex: 500
-- Centered card with `theme.bg_card`
-- Click-outside dismiss via stopPropagation
-- Follows existing AlertModal/AddStockModal pattern
+### TrialBanner spec
+- Signed out: "Sign in for 3 free AI analyses" + LoginButton
+- Signed in: user name/email + remaining count (e.g., "2/3 remaining") + 4px progress bar + logout
 
 ---
 
-## 11. TrialLimitModal Component
+## 9. TrialLimitModal
 
-### Purpose
-
-Modal shown when analysis returns HTTP 429 (trial limit reached). Two variants based on registration status.
-
-### Implementation Files
-
+### Files
 | File | Change |
 |------|--------|
-| `frontend/src/components/TrialLimitModal.tsx` | **New** — limit reached modal |
+| `frontend/src/components/TrialLimitModal.tsx` | **New** — shown on HTTP 429 |
 
-### Variants
-
-**Variant A — Anonymous (email_registered = false):**
+### Single variant
 - "Free Trial Limit Reached"
-- "Register your email to get 3 more!"
-- [Register Email] button → opens EmailRegistrationModal
-- [Maybe Later] button → closes
-
-**Variant B — Email user (email_registered = true):**
-- "Trial Limit Reached"
-- "You've used all 6 available analyses. Premium plans coming soon."
-- [Got it] button → closes
+- "You've used all 3 free analyses. Premium plans coming soon."
+- [Got it] → closes
+- Follows the existing AlertModal/AddStockModal pattern (fixed overlay, centered card, click-outside dismiss)
 
 ---
 
-## 12. Existing Component Wiring
+## 10. Gate Wiring (AiAnalysisInline)
 
-### Purpose
-
-Connect trial state and modals to existing components.
-
-### Implementation Files
-
+### Files
 | File | Change |
 |------|--------|
-| `frontend/src/components/AiAnalysisInline.tsx` | Add `trialBlocked` prop, show TrialLimitModal on block |
-| `frontend/src/pages/QuickLook.tsx` | Pass `trialBlocked` from useAnalysis to AiAnalysisInline |
+| `frontend/src/components/AiAnalysisInline.tsx` | Login-first on the two analyze buttons; show TrialLimitModal on `trialBlocked` |
+| `frontend/src/pages/QuickLook.tsx` | Pass `trialBlocked` from `useAnalysis` |
 
-### AiAnalysisInline Changes
-
-- Accept new `trialBlocked` prop
-- When `trialBlocked` is set, render TrialLimitModal
-- Update re-analyze confirm message (line 82) to reflect trial remaining count
-
-### QuickLook Changes
-
-- Destructure `trialBlocked` from `useAnalysis` hook (line 31)
-- Pass to `<AiAnalysisInline trialBlocked={...} />` (line 108)
+### Behavior
+- If signed out, clicking "AI 분석" / "Re-analyze" opens the login flow instead of calling the API
+- If signed in but out of credits (429), render TrialLimitModal
 
 ---
 
@@ -423,28 +345,22 @@ Connect trial state and modals to existing components.
 
 | Scenario | Handling |
 |----------|----------|
-| localStorage cleared | New UUID → new wallet with fresh `balance=3`. Same email can't re-grant +3 (UNIQUE) |
-| Concurrent analysis requests | Atomic `UPDATE ... WHERE (balance - held) >= 1` — only as many holds as available credits succeed; the rest get 429 |
-| Hard pipeline failure | `release_credit` refunds the hold — credit is **not** lost |
-| Retry / double-submit | Same `ref_id` reuses the existing hold → **charged once** (idempotent) |
-| Global 100/day limit hit | (Phase 14 = free only) hold is already placed → treat as hard failure → `release` (refund). V2-2 replaces the global cap with a high-threshold circuit breaker |
-| Same email on different device | `request_verification` rejects: "This email is already registered" |
-| Verification code brute-force | Max 3 attempts per code, 10-minute expiry (6-digit = 1M possibilities) |
-| Code spam | Max 3 active codes per device in 10 minutes |
+| Not logged in | `get_current_user` → 401; frontend prompts Google login |
+| localStorage cleared | Re-login with the same Google account → **same `sub` → same wallet** (credits not reset) |
+| Cache hit | Free — returns before reserve (login still required to reach the endpoint) |
+| Concurrent analysis requests | Atomic `UPDATE ... WHERE (balance - held) >= 1` — no oversell; surplus get 429 |
+| Hard pipeline failure | `release_credit` refunds the hold — credit not lost |
+| Retry / double-submit | Same `ref_id` reuses the hold → charged once (idempotent) |
+| Global 100/day cap hit | Hold already placed → treated as hard failure → `release` (refund). V2-2 replaces the cap with a high-threshold circuit breaker |
+| Invalid / expired token | `verify_oauth2_token` raises → 401 |
 
 ---
 
 ## Migration Paths
 
-### Hybrid → Email-Only (2 code changes)
-
-1. `backend/routers/analysis.py`: Change `x_device_id: Optional[str] = Header(None)` → `x_device_id: str = Header(...)`
-2. Add check in `reserve_credit`: if `email_verified == 0`, reject with `reason: "email_required"`
-
 ### Free → Paid Tier (V2-2, see [`BACKLOG.md`](../BACKLOG.md))
-
 - Add a `topup` ledger type — payment webhook → `balance += purchased`. **No wallet/ledger redesign**
-- Replace the global 100/day hard cap (`utils/usage_tracker.py`) with a **high-threshold circuit breaker** that only stops runaway/abuse (paid users are never blocked)
+- Replace the global 100/day hard cap (`utils/usage_tracker.py`) with a **high-threshold circuit breaker** (paid users never blocked)
 - The reserve → commit/release flow and idempotency are reused unchanged for paid credits
 
 ---
@@ -452,78 +368,71 @@ Connect trial state and modals to existing components.
 ## Implementation Order
 
 ```
-Backend (independent, testable first):
-  1. data/database.py          — schema foundation
-  2. services/email_sender.py  — no dependencies
-  3. services/trial_service.py — depends on database
-  4. backend/routers/trial.py  — depends on trial_service
-  5. backend/main.py           — router registration
-  6. backend/routers/analysis.py — trial gate insertion
+PHASE A — Backend (✅ done, Client ID not required):
+  1. services/trial_service.py   — remove email logic, sub-keyed wallet
+  2. backend/auth.py             — Google token verify + get_current_user
+  3. backend/routers/analysis.py — Depends(get_current_user), always gated
+  4. backend/routers/trial.py    — /trial/status only
+  5. tests/test_phase14_trial.py — unit tests (12 pass)
 
-Frontend (after backend is working):
-  7. frontend/src/services/deviceId.ts   — no dependencies
-  8. frontend/src/services/trialApi.ts   — depends on deviceId
-  9. frontend/src/hooks/useTrial.ts      — depends on trialApi
-  10. frontend/src/hooks/useAnalysis.ts  — depends on deviceId
-  11. frontend/src/components/TrialBanner.tsx
-  12. frontend/src/components/EmailRegistrationModal.tsx
-  13. frontend/src/components/TrialLimitModal.tsx
-  14. frontend/src/components/Sidebar.tsx — TrialBanner swap
-  15. frontend/src/components/AiAnalysisInline.tsx — modal wiring
-  16. frontend/src/pages/QuickLook.tsx    — prop passing
+PHASE B — Frontend (after Google Client ID issued):
+  6. @react-oauth/google + GoogleOAuthProvider
+  7. useAuth hook
+  8. useAnalysis — Authorization header + 429
+  9. LoginButton + TrialBanner (Sidebar swap) + TrialLimitModal
+ 10. Gate wiring (AiAnalysisInline)
+
+PHASE C — Integration Test + QA
 ```
 
 ---
 
 ## File Summary
 
-### New Files (9)
+### New Files
+| File | Purpose | Status |
+|------|---------|--------|
+| `backend/auth.py` | Google ID token verification + dependency | ✅ |
+| `tests/test_phase14_trial.py` | Wallet + auth unit tests | ✅ |
+| `frontend/src/auth/AuthProvider.tsx` | `AuthProvider` + `useAuth` (Google auth state) | ✅ |
+| `frontend/src/components/LoginButton.tsx` | Google login/logout button | ✅ |
+| `frontend/src/components/TrialBanner.tsx` | Sidebar trial banner | ✅ |
+| `frontend/src/components/TrialLimitModal.tsx` | Limit-reached modal | ✅ |
 
-| File | Purpose |
-|------|---------|
-| `services/email_sender.py` | Pluggable email sending (console/SMTP) |
-| `services/trial_service.py` | Core trial business logic |
-| `backend/routers/trial.py` | Trial API endpoints |
-| `frontend/src/services/deviceId.ts` | Device ID generation + persistence |
-| `frontend/src/services/trialApi.ts` | Trial API client functions |
-| `frontend/src/hooks/useTrial.ts` | Trial state management hook |
-| `frontend/src/components/TrialBanner.tsx` | Sidebar trial status banner |
-| `frontend/src/components/EmailRegistrationModal.tsx` | Email verification modal |
-| `frontend/src/components/TrialLimitModal.tsx` | Limit reached modal |
+### Modified Files
+| File | Change | Status |
+|------|--------|--------|
+| `services/trial_service.py` | Email logic removed, sub-keyed wallet | ✅ |
+| `backend/routers/analysis.py` | Login-required gate, sub-based reserve/commit/release | ✅ |
+| `backend/routers/trial.py` | `/trial/status` only | ✅ |
+| `requirements.txt` | `google-auth>=2.28.0` | ✅ |
+| `.env.example` | `GOOGLE_CLIENT_ID` / `VITE_GOOGLE_CLIENT_ID` | ✅ |
+| `frontend/src/config.ts` | `GOOGLE_CLIENT_ID` export | ✅ |
+| `frontend/src/App.tsx` | `GoogleOAuthProvider` + `AuthProvider` wrap | ✅ |
+| `frontend/src/hooks/useAnalysis.ts` | Auth header + 429 handling | ✅ |
+| `frontend/src/components/Sidebar.tsx` | Replace AI USAGE with TrialBanner | ✅ |
+| `frontend/src/components/AiAnalysisInline.tsx` | Gate wiring + modal | ✅ |
+| `frontend/src/pages/QuickLook.tsx` | Pass `trialBlocked` | ✅ |
 
-### Modified Files (6)
-
-| File | Change |
+### Deleted Files
+| File | Reason |
 |------|--------|
-| `data/database.py` | Add 3 tables to CREATE_TABLES_SQL (wallets + ledger + email_verification) |
-| `backend/main.py` | Import + register trial router |
-| `backend/routers/analysis.py` | Add X-Device-Id header + reserve→commit/release gate |
-| `frontend/src/hooks/useAnalysis.ts` | Add device header + 429 handling |
-| `frontend/src/components/Sidebar.tsx` | Replace AI USAGE with TrialBanner |
-| `frontend/src/components/AiAnalysisInline.tsx` | Wire trialBlocked + modal |
-| `frontend/src/pages/QuickLook.tsx` | Pass trialBlocked prop |
+| `services/email_sender.py` | Dead code after pivot (no imports) — deleted 2026-06-16 |
 
 ---
 
 ## Verification
 
-### Backend Testing
+### Backend (✅ done)
+1. **Unit tests** (`tests/test_phase14_trial.py`): create wallet, reserve/commit/release, refund on failure, 429 on exhaustion, idempotency, account isolation, `get_current_user` 401 paths — **12 pass**
+2. **Import check**: `from backend.main import app` loads clean; only `/api/trial/status` exposed
+3. **Manual** (after Client ID): `curl -H "Authorization: Bearer <token>" http://localhost:8001/api/trial/status`
 
-1. **Unit tests**: trial_service functions (create wallet, reserve/commit/release, refund on failure, verify code)
-2. **API test**: `curl -H "X-Device-Id: test-uuid" http://localhost:8001/api/trial/status`
-3. **429 test**: Exhaust 3 credits, verify 4th returns 429 with correct body (`balance`, `available`, `email_registered`)
-4. **Cache bypass test**: Cached analysis does not reserve/consume a credit
-5. **Refund test**: Force a pipeline failure → confirm `release` ledger row + balance unchanged
-6. **Idempotency test**: Send the same `ref_id` twice → confirm only one credit consumed
-
-### Frontend Manual Testing
-
-1. Fresh browser → run analysis → TrialBanner shows "2/3 remaining"
-2. Run 3 analyses → TrialLimitModal appears with "Register Email" option
-3. Complete email verification → TrialBanner updates to "3/6 remaining"
-4. Run 3 more → TrialLimitModal shows "Trial Limit Reached" (no email option)
-5. Clear localStorage → new device ID → fresh "3/3 remaining"
-6. Try same email on new device → error message
+### Frontend (✅ built — `tsc -b` + `vite build` pass)
+1. Signed out → "AI 분석" opens Google login *(manual QA pending)*
+2. Signed in → run analysis → TrialBanner shows "2/3 left" *(manual QA pending)*
+3. Use 3 → TrialLimitModal "premium coming soon" *(manual QA pending)*
+4. Clear localStorage → re-login same account → credits unchanged (same `sub`) *(manual QA pending)*
 
 ---
 
@@ -534,398 +443,353 @@ Frontend (after backend is working):
 | 2026-05-16 | Document created — initial planning (as Phase 15) | AI |
 | 2026-05-16 | Renumbered from Phase 15 → Phase 14 (swapped with i18n) | AI |
 | 2026-06-09 | Redesigned to **wallet + ledger + reserve/commit (hold)** pattern; payment split to BACKLOG V2-2; global daily cap → circuit breaker on paid migration | AI |
+| 2026-06-15 | Pivoted email-code verification → **Google OAuth login**; free grant 6→3; gate scoped to "AI 분석" click (login required) | AI |
+| 2026-06-16 | **PHASE A backend pivot done** — new `backend/auth.py`, trial_service email logic removed, analysis/trial routers switched to verified `sub`, 12 unit tests pass | AI |
+| 2026-06-16 | Deleted dead `services/email_sender.py`; **full bilingual doc rewrite** to the post-pivot design (detailed sections §1–10 resynced EN/KR) | AI |
+| 2026-06-16 | **PHASE B frontend done** — `@react-oauth/google` + `AuthProvider`/`useAuth`/`LoginButton`/`TrialBanner`/`TrialLimitModal`, useAnalysis auth+429, Sidebar/AiAnalysisInline gate wiring; build passes; Google Client ID configured. #12 manual QA pending | AI |
 
 ---
 ---
 
-# Phase 14 — 무료체험 하이브리드(3+3) 시스템 `🔲 미시작`
+# Phase 14 — 무료체험 (Google 로그인 게이트) 시스템 `🔶 진행 중 (구현 완료, 수동 QA 대기)`
 
-> 기기 기반 익명 3회 무료 + 이메일 등록 시 3회 추가 (총 6회). 향후 이메일 전용 및 유료 전환 가능한 구조.
+> Google 로그인 게이트 무료체험: AI 분석은 로그인이 필요하며 **계정당 무료 3회**를 제공한다. 그 외 기능(시세·차트·섹터·비교)은 비로그인 사용을 유지한다. 지갑/원장/hold 코어는 향후 유료 티어를 위해 그대로 재사용한다.
 
-**상태**: 🔲 미시작
+**상태**: 🔶 진행 중 — 백엔드 + 프론트엔드 ✅ 구현 완료 (2026-06-16) · 브라우저 수동 QA 🔲 대기
 **선행 조건**: Phase 13 완료 (포트폴리오), Phase 13.5 완료 (포트폴리오 인증)
 
-> **⚠️ 설계 노트 (2026-06-09 결정)**: 이 Phase는 단순 카운터가 아니라 **"크레딧 지갑 + 거래 원장 + 예약-확정(hold) 패턴"** 구조로 구현한다. 무료 6크레딧은 이 지갑의 초기 잔액으로 충전된다. **실제 결제(PG)·선불 크레딧 판매는 [`BACKLOG.md` V2-2](../BACKLOG.md)로 분리** — Phase 14에서 지은 지갑에 "충전" 동작만 얹는 형태로 설계할 것. 과금 모델: AI 분석 1회 = 1크레딧 차감(포트폴리오/개별주/다중 비교 공통), 캐시 히트 무차감.
+> **⚠️ 설계 피벗 (2026-06-15 결정) — 이메일 인증 → Google 로그인**
+> 당초 "익명 3회 + 이메일 인증 +3회(총 6회)" 하이브리드였으나 아래로 변경한다:
+> - **인증 방식**: 이메일 6자리 코드 → **Google OAuth 로그인** (SMTP/코드발송 불필요, UX 단순, V2-2 유료계정으로 직결)
+> - **무료 제공량**: 익명3+이메일3=6회 → **로그인 시 3회**
+> - **게이트 범위**: 앱 전체 아님 → **"AI 분석" 클릭 시에만** 로그인 요구. 시세·차트·섹터·비교는 비로그인 유지
+> - **신원 식별**: `X-Device-Id`(localStorage UUID) → **Google `sub`(검증된 ID 토큰)**. 지갑/원장/hold 코어는 그대로, 신원 키 값만 교체
+> - **UI**: 분석 버튼 옆 "n회 남음" 미표시 (사이드바 배너에만 노출)
+> - **폐기**: 이메일 발송기(`email_sender.py`), `email_verification` 테이블, `/trial/request-code`·`/trial/verify` 엔드포인트
+> - 사내망 차단 환경은 이번 범위 제외 (Google 접속 전제)
+>
+> **⚠️ 설계 노트 (2026-06-09 결정 — 유효)**: 단순 카운터가 아니라 **"크레딧 지갑 + 거래 원장 + 예약-확정(hold) 패턴"**으로 구현한다. 무료 크레딧은 지갑의 초기 잔액이다. **실제 결제(PG)·선불 크레딧 판매는 [`BACKLOG.md` V2-2](../BACKLOG.md)로 분리** — 지갑에 "충전" 동작만 얹는 형태로 설계. 과금: AI 분석 1회 = 1크레딧(포트폴리오/개별주/다중비교 공통), 캐시 히트 무차감.
 
 ---
 
 ## 개요
 
-현재 앱은 사용자별 추적 기능이 없다 — 모든 API 엔드포인트가 공개되어 있고 글로벌 일일 100회 AI 호출 제한만 존재한다. 이 Phase에서는 하이브리드 무료체험 시스템을 도입한다:
+현재 앱은 사용자별 추적이 없다 — 모든 엔드포인트가 공개이고 글로벌 일일 100회 제한만 있다. 이 Phase는 **Google 로그인 게이트** 무료체험을 도입한다:
 
-1. **익명 티어 (3회)**: localStorage의 UUID로 기기 식별, `X-Device-Id` 헤더로 전송
-2. **이메일 티어 (+3회, 총 6회)**: 이메일 인증 완료 시 누적 6회 분석 가능
-3. **캐시 결과는 무료**: 새로운 AI 파이프라인 실행만 횟수 차감
+1. **공개 기능**: 시세·차트·섹터 스크리닝·비교 — 비로그인 사용 (그대로)
+2. **게이트 기능**: "AI 분석" 클릭 시 Google 로그인 필요, 계정당 **무료 3회**
+3. **캐시 결과는 무료**: 새 AI 파이프라인 실행만 횟수 차감
 
-**전환 경로**: 하이브리드 → 이메일 전용은 코드 2곳만 수정. 유료 티어 연동은 동일한 게이트에 결제 확인 추가.
+**신원**: Google ID 토큰(`Authorization: Bearer <token>`)을 서버에서 검증하고, 토큰의 `sub`가 지갑 키가 된다. `sub`는 구글이 서명해 위조 불가하며, 기기 UUID와 달리 **localStorage를 지우고 다시 로그인해도 같은 지갑**을 돌려준다(크레딧 초기화 안 됨).
+
+**전환 경로**: 무료 → 유료(V2-2)는 같은 지갑에 `topup` 원장 타입만 추가 — 재설계 없음.
 
 ---
 
 ## 산출물
 
-| # | 모듈 | 상태 | 유형 | 예상 시간 |
-|---|------|------|------|-----------|
-| 1 | DB 스키마 (wallets + ledger + email_verification) | 🔲 | 백엔드 | 0.5h |
-| 2 | 이메일 발송 모듈 (플러그인, 콘솔 기본) | 🔲 | 백엔드 | 0.5h |
-| 3 | 트라이얼 서비스 (핵심 비즈니스 로직) | 🔲 | 백엔드 | 2h |
-| 4 | 트라이얼 API 라우터 (status, request-code, verify) | 🔲 | 백엔드 | 1h |
-| 5 | 분석 엔드포인트 트라이얼 게이트 | 🔲 | 백엔드 | 1h |
-| 6 | 기기 ID + 트라이얼 API 클라이언트 (프론트엔드) | 🔲 | 프론트엔드 | 1h |
-| 7 | useTrial 훅 | 🔲 | 프론트엔드 | 1h |
-| 8 | useAnalysis 훅 수정 | 🔲 | 프론트엔드 | 1h |
-| 9 | TrialBanner 컴포넌트 | 🔲 | 프론트엔드 | 1h |
-| 10 | EmailRegistrationModal 컴포넌트 | 🔲 | 프론트엔드 | 2h |
-| 11 | TrialLimitModal 컴포넌트 | 🔲 | 프론트엔드 | 1h |
-| 12 | 기존 컴포넌트 연결 (Sidebar, AiAnalysisInline, QuickLook) | 🔲 | 프론트엔드 | 1h |
-| 13 | 통합 테스트 + QA | 🔲 | 공통 | 1.5h |
+| # | 모듈 | 상태 | 유형 | 예상 |
+|---|------|------|------|------|
+| 1 | DB 스키마 (wallets + ledger) — `email_verification` 미사용 | ✅ | 백엔드 | 0.5h |
+| 2 | 트라이얼 서비스 (지갑/원장/hold 코어) — 이메일 함수 제거 | ✅ | 백엔드 | 2h |
+| 3 | 트라이얼 API 라우터 — `/trial/status`만 (request-code/verify 제거) | ✅ | 백엔드 | 0.5h |
+| 4 | 분석 게이트 — `X-Device-Id` → 검증된 Google `sub`, 상시 적용 | ✅ | 백엔드 | 1h |
+| 5 | 백엔드 Google 토큰 검증 (`backend/auth.py`, `google-auth`) | ✅ | 백엔드 | 1.5h |
+| 6 | 프론트 Auth — `@react-oauth/google` + `GoogleOAuthProvider` + `useAuth` | ✅ | 프론트 | 2h |
+| 7 | useAnalysis 훅 — `Authorization` 헤더 + 429 → `trialBlocked` | ✅ | 프론트 | 1h |
+| 8 | LoginButton 컴포넌트 | ✅ | 프론트 | 0.5h |
+| 9 | TrialBanner 컴포넌트 (잔여 + 유저 + 로그아웃, Sidebar 교체) | ✅ | 프론트 | 1h |
+| 10 | TrialLimitModal 컴포넌트 (단일 변형 "3회 소진, 프리미엄 준비중") | ✅ | 프론트 | 0.5h |
+| 11 | 게이트 와이어링 (AiAnalysisInline 두 버튼: 비로그인 시 로그인 우선) | ✅ | 프론트 | 1h |
+| 12 | 통합 테스트 + QA | 🔶 | 공통 | 1.5h |
 
-**총 예상: ~14.5시간**
+**총 ~13시간** · 백엔드(#1~5) ✅ + 프론트(#6~11) ✅ 완료 (2026-06-16) · #12 브라우저 수동 QA 대기
+
+### 구현 현황 (2026-06-16 기준)
+
+**✅ 백엔드 완료 (PHASE A — Google 로그인 피벗)**
+- `data/database.py` — `wallets` / `ledger` 테이블 (지갑/원장 그대로 재사용, 스키마 무변경)
+- `services/trial_service.py` — `reserve`/`commit`/`release`/`get_status` (hold 패턴). 이메일 함수(`request_verification`/`verify_code`)·`email_sender` import·`EMAIL_BONUS`·코드 상수 전부 제거, `_status_dict` → `{balance, held, available}`, 신원 키(`device_id` 컬럼)에 Google `sub` 저장, `INITIAL_CREDITS=3`
+- `backend/auth.py` (신규) — `google-auth`로 Google ID 토큰 검증. `verify_google_token()` + FastAPI 의존성 `get_current_user()` (Bearer 헤더 → `sub`/`email`/`name`/`picture`, 누락·형식오류·검증실패 시 401). `GOOGLE_CLIENT_ID` env로 audience 검증
+- `backend/routers/analysis.py` — `user = Depends(get_current_user)`, 게이트 **상시 적용**(로그인 필수), `sub` 기반 reserve/commit/release, 캐시 히트 무차감
+- `backend/routers/trial.py` — `request-code`/`verify` 제거, 토큰 기반 `/trial/status`만
+- `requirements.txt` — `google-auth>=2.28.0` · `.env.example` — `GOOGLE_CLIENT_ID` / `VITE_GOOGLE_CLIENT_ID`
+- `tests/test_phase14_trial.py` (신규) — 지갑 reserve/commit/release/429/멱등성/계정격리 + `get_current_user` 401 경로 **12개 통과**
+
+**✅ 프론트엔드 완료 (PHASE B — 2026-06-16)**
+- `@react-oauth/google` 설치; `App.tsx`를 `<GoogleOAuthProvider>` + `<AuthProvider>`로 래핑
+- `frontend/src/config.ts` — `GOOGLE_CLIENT_ID` export
+- `frontend/src/auth/AuthProvider.tsx` (신규) — `AuthProvider` + `useAuth`; Google ID 토큰 localStorage 보관, JWT payload 디코드(표시용), 만료 토큰 자동 제거
+- `frontend/src/components/LoginButton.tsx` (신규) — `@react-oauth/google` `<GoogleLogin>` 래퍼 (테마 연동)
+- `frontend/src/components/TrialBanner.tsx` (신규) — 사이드바: 비로그인 시 로그인 CTA, 로그인 시 유저+잔여횟수+프로그레스바+로그아웃, `/trial/status` fetch + `trial-changed` 이벤트 갱신
+- `frontend/src/components/TrialLimitModal.tsx` (신규) — HTTP 429 시 단일 변형 모달 (AlertModal 패턴)
+- `frontend/src/hooks/useAnalysis.ts` — `Authorization: Bearer` + `X-Request-Id`(`crypto.randomUUID`), 429→`trialBlocked`, 401→세션만료 에러, 성공 시 `trial-changed` dispatch, `trialBlocked`/`clearTrialBlocked` 반환
+- `frontend/src/components/Sidebar.tsx` — 하드코딩 "AI USAGE 0/100" → `<TrialBanner />`
+- `frontend/src/components/AiAnalysisInline.tsx` — `useAuth` 게이트(비로그인 시 두 버튼 로그인 우선), `trialBlocked` 시 `TrialLimitModal`, 재분석 confirm "무료 분석 1회 사용"으로
+- `frontend/src/pages/QuickLook.tsx` — `trialBlocked` / `onClearTrialBlocked` 전달
+- 검증: `tsc -b` 타입체크 + `vite build`(80 모듈) 통과; 백엔드 라이브 — `/trial/status`·`POST /analysis` 토큰 없음/잘못된 토큰 모두 401
+
+**🔲 남은 작업 — 브라우저 수동 QA (#12)**
+- Google 로그인 → 분석 실행 → 배너 잔여 표시 → 3회 소진 → TrialLimitModal → 같은 계정 재로그인 시 크레딧 유지
+
+**🗑️ 폐기 (미사용 전환)** — `services/email_sender.py` (**삭제 완료** 2026-06-16), `email_verification` 테이블 (스키마 잔존·미사용)
+
+**🔑 선행 ✅ 완료**: Google Cloud OAuth 클라이언트 ID 발급 → `.env` `GOOGLE_CLIENT_ID` + `frontend/.env` `VITE_GOOGLE_CLIENT_ID` 설정 완료
+
+---
+
+## 아키텍처 / 데이터 흐름
+
+```
+프론트엔드 (Google 로그인 상태)
+  → POST /api/analysis/{ticker}
+     Authorization: Bearer <Google ID 토큰>
+     X-Request-Id: <uuid>   (멱등성 키)
+        │
+        ▼
+  get_current_user  ── 토큰 검증 ──► sub  (무효/누락 시 401)
+        │
+        ▼
+  캐시 히트? ── 예 ──► 반환 (무료, 무차감)
+        │ 아니오
+        ▼
+  reserve_credit(sub, ref_id)
+        │   크레딧 없음 → HTTP 429 {error:"trial_limit_reached", available:0, ...}
+        ▼
+  5-Agent 파이프라인 실행
+        ├─ 예외 / 전 에이전트 실패 → release_credit (환불)
+        └─ 성공 → 캐시 저장 → commit_credit (balance-1)
+        ▼
+  응답 { ...분석결과, wallet:{balance,held,available} }
+```
 
 ---
 
 ## 1. DB 스키마
 
 ### 목적
+계정별 크레딧 **지갑** + 추가 전용 **원장**(모든 크레딧 이동 감사). 둘 다 2026-06-09 구축분을 그대로 재사용한다. `device_id` 컬럼은 PK로 유지하되 이제 Google `sub`를 담는다 — 마이그레이션 불필요.
 
-SQLite에 테이블 3개 추가: 기기별 크레딧 **지갑(wallet)**, 모든 크레딧 이동을 기록하는 **원장(ledger, 가계부)**, 코드 관리용 **email_verification**. 2026-06-09에 합의한 "지갑" 구조이며 단순 카운터가 아니다.
-
-### 구현 파일
-
+### 파일
 | 파일 | 변경 |
 |------|------|
-| `data/database.py` | `CREATE_TABLES_SQL`에 `wallets` + `ledger` + `email_verification` 테이블 추가 |
+| `data/database.py` | `wallets` + `ledger` 테이블 (이미 존재). `email_verification`은 유지하되 미사용 |
 
 ### 스키마
-
 ```sql
--- 기기별 크레딧 지갑 (기기당 1줄)
+-- 계정별 크레딧 지갑 (Google sub당 1줄). 사용가능 = balance - held
 CREATE TABLE IF NOT EXISTS wallets (
-    device_id TEXT PRIMARY KEY,
-    balance INTEGER DEFAULT 3,        -- 보유 크레딧 (익명은 3으로 시작)
-    held INTEGER DEFAULT 0,           -- 분석 진행 중 잠긴 크레딧
-    email TEXT UNIQUE,
-    email_verified INTEGER DEFAULT 0,
+    device_id TEXT PRIMARY KEY,        -- 검증된 Google sub 저장
+    balance INTEGER DEFAULT 3,         -- 보유 크레딧 (첫 로그인 시 3)
+    held INTEGER DEFAULT 0,            -- 분석 진행 중 잠긴 크레딧
+    email TEXT UNIQUE,                 -- 레거시 컬럼 (피벗 후 미사용)
+    email_verified INTEGER DEFAULT 0,  -- 레거시 컬럼 (피벗 후 미사용)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 모든 크레딧 이동의 추가 전용(append-only) 감사 기록
 CREATE TABLE IF NOT EXISTS ledger (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     device_id TEXT NOT NULL,
-    type TEXT NOT NULL,               -- 'grant' | 'hold' | 'commit' | 'release' | (V2: 'topup')
-    amount INTEGER NOT NULL,          -- 부호 있는 증감 (+3 지급, +1 예약, -1 확정, -1 환불...)
-    ref_id TEXT,                      -- 멱등성 키 (분석 요청당 1개)
+    type TEXT NOT NULL CHECK(type IN ('grant','hold','commit','release','topup')),
+    amount INTEGER NOT NULL,           -- 부호 있는 증감 (+3 지급, +1 예약, -1 확정/환불)
+    ref_id TEXT,                       -- 멱등성 키 (분석 요청당 1개)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (device_id) REFERENCES wallets(device_id)
 );
 
-CREATE TABLE IF NOT EXISTS email_verification (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    device_id TEXT NOT NULL,
-    email TEXT NOT NULL,
-    code TEXT NOT NULL,
-    attempts INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP NOT NULL,
-    FOREIGN KEY (device_id) REFERENCES wallets(device_id)
-);
+CREATE INDEX IF NOT EXISTS idx_ledger_ref_id ON ledger(ref_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_device_id ON ledger(device_id);
 ```
 
 ### 핵심 공식
+**사용 가능 크레딧 = `balance - held`** — 잠긴 크레딧은 쓸 수 있는 양에서 제외. 이 공식 하나가 게이트를 움직인다.
 
-**사용 가능 크레딧 = `balance - held`** — 잠긴(held) 크레딧은 쓸 수 있는 양에서 제외. 이 공식 하나가 §5 게이트를 움직인다.
-
-### 설계 결정 사항
-
-- 크레딧은 **누적(lifetime)** — `utils/usage_tracker.py`의 글로벌 일일 100회 제한과 독립적
-- **단일 카운터 대신 지갑 + 원장**: 원장은 추가 전용 감사 기록이라 "차감됐는데 결과 없음" 분쟁을 증명 가능. V2-2(결제)에서 크레딧이 실제 돈이 되면 필수
-- `balance` + `held`로 **예약 → 확정/환불(hold) 패턴**(§5) 구현 — 동시성 안전 + 환불 안전 동시 달성
-- `email UNIQUE`로 하나의 이메일이 여러 기기에서 +3 받는 것 방지
-- 이메일 인증 시 **+3** 지급(`grant` 원장 1줄로 `balance += 3`) → 익명 3 → 6
-- 원장의 `ref_id` = **멱등성 키**: 같은 ref_id로 재시도된 요청은 절대 두 번 차감되지 않음
-- `CREATE TABLE IF NOT EXISTS` — 마이그레이션 불필요, `init_db()` 시 자동 생성
-- **유료 확장(V2-2)**: `topup` 원장 타입으로 `balance += 구매량`만 추가. 스키마 재설계 없음 — [`BACKLOG.md` V2-2](../BACKLOG.md) 참조
+### 설계 결정
+- 크레딧은 **누적(lifetime)** — 글로벌 일일 100회와 독립
+- **단일 카운터 대신 지갑+원장**: "차감됐는데 결과 없음" 분쟁 증명 — V2-2에서 필수
+- `balance`+`held`로 **예약 → 확정/환불** 패턴 — 동시성·환불 안전
+- `ref_id` = **멱등성 키**: 같은 ref_id 재시도는 두 번 차감 안 됨
+- **유료 확장(V2-2)**: `topup` 원장 타입으로 `balance += 구매량` — 재설계 없음
 
 ---
 
-## 2. 이메일 발송 모듈 (플러그인)
+## 2. 트라이얼 서비스
 
 ### 목적
+지갑 라이프사이클: 예약 → 확정/환불 + 멱등성. 이메일 로직 없음.
 
-개발 시 콘솔 출력, 배포 시 SMTP 전환 가능한 이메일 발송 모듈.
-
-### 구현 파일
-
+### 파일
 | 파일 | 변경 |
 |------|------|
-| `services/email_sender.py` | **신규** — `send_verification_email(email, code) → bool` |
+| `services/trial_service.py` | 지갑 라이프사이클 함수. `INITIAL_CREDITS=3` |
 
-### 핵심 로직
-
-- `EMAIL_BACKEND` 환경변수: `"console"` (기본값) 또는 `"smtp"`
-- 콘솔 모드: 6자리 코드를 stdout에 출력
-- SMTP 모드: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` 환경변수 사용
-
----
-
-## 3. 트라이얼 서비스
-
-### 목적
-
-무료체험 사용자 관리, 사용량 추적, 이메일 인증의 핵심 비즈니스 로직.
-
-### 구현 파일
-
-| 파일 | 변경 |
-|------|------|
-| `services/trial_service.py` | **신규** — 지갑 라이프사이클 함수 (예약/확정/환불 + 인증) |
-
-### 함수 목록
-
+### 함수
 | 함수 | 역할 |
 |------|------|
-| `get_or_create_user(device_id)` | 지갑 조회/생성. `INSERT OR IGNORE`, 초기 `balance=3` + `grant` 원장 1줄 |
-| `reserve_credit(device_id, ref_id)` | **원자적 예약(hold)**: `UPDATE wallets SET held = held + 1 WHERE device_id = ? AND (balance - held) >= 1`. 0행 영향 → 크레딧 없음. `hold` 원장 기록. 멱등: 같은 `ref_id`가 이미 예약돼 있으면 새로 잡지 않고 기존 예약 반환 |
-| `commit_credit(device_id, ref_id)` | **성공 시**: `UPDATE wallets SET balance = balance - 1, held = held - 1 WHERE device_id = ?`. `commit` 원장 기록 |
-| `release_credit(device_id, ref_id)` | **실패 시(환불)**: `UPDATE wallets SET held = held - 1 WHERE device_id = ?`. `release` 원장 기록 |
-| `request_verification(device_id, email)` | 6자리 코드 생성, DB 저장, email_sender로 발송. 10분 만료 |
-| `verify_code(device_id, email, code)` | 코드 검증, 성공 시 `balance += 3`(`grant` 원장 1줄) + `email_verified=1` 설정. 코드당 최대 3회 오입력 |
-| `get_status(device_id)` | 읽기 전용 상태: `balance`, `held`, `available`(=balance-held), `email_verified`, tier |
+| `get_or_create_user(sub)` | 지갑 조회/생성. `INSERT OR IGNORE`, 초기 `balance=3` + `grant` 원장 |
+| `get_status(sub)` | 읽기 전용 상태: `{balance, held, available}` |
+| `reserve_credit(sub, ref_id)` | **원자적 예약**: `UPDATE wallets SET held = held + 1 WHERE device_id = ? AND (balance - held) >= 1`. 0행 → 크레딧 없음. `hold` 원장. `ref_id` 멱등 |
+| `commit_credit(sub, ref_id)` | **성공 시**: `balance-1, held-1`. `commit` 원장 |
+| `release_credit(sub, ref_id)` | **실패 시(환불)**: `held-1`. `release` 원장 |
 
-### 동시성 안전
+### 동시성 & 멱등성
+- `UPDATE ... WHERE (balance - held) >= 1`는 SQLite WAL에서 **원자적** — 동시 요청 초과 사용 불가
+- `INSERT OR IGNORE`로 첫 지갑 생성 레이스 처리
+- 각 원장 기록 전에 같은 `(sub, ref_id, type)` 존재 여부를 먼저 확인 → 재시도는 기존 hold/commit/release 재사용
 
-- `UPDATE wallets SET held = held + 1 WHERE device_id = ? AND (balance - held) >= 1`는 SQLite WAL 모드에서 **원자적** — 동시 요청이 절대 초과 사용 못 함. 사용 가능 크레딧 수만큼만 예약 성공, 나머지는 0행 → 429
-- `INSERT OR IGNORE`로 첫 지갑 생성 시 레이스 컨디션 처리
-- **멱등성**: `ref_id`(분석 요청당 1개)로 재시도/중복 요청은 기존 예약을 재사용 → 두 번 차감 안 됨
+---
+
+## 3. 백엔드 Google 토큰 검증
+
+### 목적
+프론트가 보낸 Google ID 토큰을 서버에서 검증하고, 검증된 신원을 FastAPI 의존성으로 노출. 구 이메일 발송 모듈을 대체.
+
+### 파일
+| 파일 | 변경 |
+|------|------|
+| `backend/auth.py` | **신규** — `verify_google_token()` + `get_current_user()` 의존성 |
+
+### 핵심 로직
+```python
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")  # audience; None이면 검증 생략(개발용)
+
+def verify_google_token(token: str) -> dict:
+    info = id_token.verify_oauth2_token(token, _transport, GOOGLE_CLIENT_ID or None)
+    return {"sub": info["sub"], "email": info.get("email"),
+            "name": info.get("name"), "picture": info.get("picture")}
+
+def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
+    # "Bearer <token>" → 검증 → 유저 dict; 아니면 HTTPException(401)
+```
+
+### 설계 결정
+| 결정 | 선택 | 이유 |
+|------|------|------|
+| 토큰 전달 | `Authorization: Bearer` 헤더 | HTTP 표준 |
+| 검증 | `google-auth` `verify_oauth2_token` | 구글 서명 + 만료 + audience 검증 |
+| 누락/무효 토큰 | HTTP 401 | 프론트가 로그인 유도 |
+| `GOOGLE_CLIENT_ID` 미설정 | audience 검증 생략(개발) | 운영은 반드시 설정 |
 
 ---
 
 ## 4. 트라이얼 API 라우터
 
 ### 목적
+지갑 상태만 노출. 예약/확정/환불은 분석 엔드포인트 내부 처리이며 사용자가 직접 호출하지 않는다.
 
-무료체험 상태 확인, 이메일 인증 코드 요청, 코드 검증을 위한 REST 엔드포인트.
-
-### 구현 파일
-
+### 파일
 | 파일 | 변경 |
 |------|------|
-| `backend/routers/trial.py` | **신규** — 엔드포인트 3개 |
-| `backend/main.py` | trial 라우터 import + 등록 추가 |
+| `backend/routers/trial.py` | `/trial/status`만 (request-code/verify 제거) |
+| `backend/main.py` | trial 라우터 등록 (이미 존재) |
 
 ### 엔드포인트
-
 | 엔드포인트 | 메서드 | 설명 |
 |------------|--------|------|
-| `/api/trial/status` | GET | 기기의 현재 무료체험 상태 조회 |
-| `/api/trial/request-code` | POST | 이메일로 인증 코드 발송 |
-| `/api/trial/verify` | POST | 6자리 인증 코드 검증 |
-
-모든 엔드포인트에서 `X-Device-Id` 헤더 필수 (FastAPI `Header(...)` 자동 추출).
+| `/api/trial/status` | GET | 로그인 계정의 지갑 상태 (`Depends(get_current_user)` → `get_status(sub)`) |
 
 ---
 
 ## 5. 분석 엔드포인트 트라이얼 게이트
 
 ### 목적
+로그인 필수 + AI 파이프라인 주위에 예약 → 확정/환불 흐름 적용.
 
-분석 엔드포인트의 캐시 조회와 AI 파이프라인 실행 사이에 트라이얼 사용량 체크 삽입.
-
-### 구현 파일
-
+### 파일
 | 파일 | 변경 |
 |------|------|
-| `backend/routers/analysis.py` | `X-Device-Id` 헤더 파라미터 + 트라이얼 게이트 로직 추가 |
+| `backend/routers/analysis.py` | `user = Depends(get_current_user)` + 게이트 로직 |
 
-### 수정된 흐름 (예약 → 실행 → 확정/환불)
-
+### 흐름 (예약 → 실행 → 확정/환불)
 ```
-이전: 캐시 확인 → 데이터 수집 → AI 파이프라인 → 캐시 저장
-이후: 캐시 확인 → [크레딧 예약] → 데이터 수집 → AI 파이프라인
-                       → 성공: [확정commit]  → 캐시 저장
-                       → 실패: [환불release]
+로그인 필수 (get_current_user) → 캐시 확인(무료) → 예약 →
+    성공: 확정(commit) → 캐시 저장
+    하드 실패/예외: 환불(release)
 ```
-
-- **캐시 히트는 예약 이전에 리턴** — 무료, 크레딧 차감 없음
-- `ref_id`(요청별 멱등성 키)를 생성/전달 → 재시도 요청은 기존 예약 재사용(중복 차감 방지)
-- `reserve_credit` 실패(가용 크레딧 없음) → HTTP 429: `{ error: "trial_limit_reached", balance, available, email_registered }`
-- **하드 실패**(전 에이전트 실패 / 예외 / 타임아웃) → `release_credit`(환불). **부분 성공**(1~2개 실패해도 결과 생성) → `commit_credit`
-- `X-Device-Id`는 `Optional[str]`로 하위 호환 (이메일 전용 전환 시 필수로 변경)
-- 분석 성공 시 응답에 지갑 상태(`balance`, `available`) 포함
+- **캐시 히트는 예약 이전 반환** — 무료 (엔드포인트 도달엔 로그인 필요)
+- `reserve_credit` 실패 → HTTP 429 `{error:"trial_limit_reached", reason:"no_credit", balance, held, available}`
+- **하드 실패**(전 에이전트 실패/예외/타임아웃) → `release_credit`(환불). **부분 성공**(1~2개 실패해도 결과 생성) → `commit_credit`
+- `X-Request-Id` = 멱등성 키, 없으면 자동 생성
+- 성공 응답에 `wallet`(`balance`, `held`, `available`) 포함
 
 ---
 
-## 6. 프론트엔드 — 기기 ID + 트라이얼 API 클라이언트
+## 6. 프론트엔드 — Auth (`useAuth`)
 
 ### 목적
+Google 로그인, ID 토큰 영속, 유저/인증 상태 노출.
 
-고유 기기 식별자 생성/저장 + 트라이얼 엔드포인트용 타입드 API 함수 제공.
-
-### 구현 파일
-
+### 파일
 | 파일 | 변경 |
 |------|------|
-| `frontend/src/services/deviceId.ts` | **신규** — `getDeviceId()`: `crypto.randomUUID()` + localStorage |
-| `frontend/src/services/trialApi.ts` | **신규** — `fetchTrialStatus()`, `requestVerificationCode()`, `verifyEmailCode()` |
+| `frontend/package.json` | `@react-oauth/google` 추가 |
+| `frontend/src/main.tsx` (또는 `App.tsx`) | `<GoogleOAuthProvider clientId={VITE_GOOGLE_CLIENT_ID}>`로 앱 래핑 |
+| `frontend/src/hooks/useAuth.ts` | **신규** — 토큰+유저 상태, login/logout, localStorage 영속 |
 
-### 기기 ID 전략
-
-- `crypto.randomUUID()` (모든 모던 브라우저 지원)
-- localStorage `quantai_device_id` 키에 저장
-- 모든 트라이얼 API 호출에 `X-Device-Id` 헤더 자동 첨부
+### 동작
+- Google 로그인 성공 시 ID 토큰(localStorage `quantai_token`) + 프로필 저장
+- `{ user, token, isLoggedIn, login, logout }` 노출
+- API 호출에 `Authorization: Bearer <token>` 첨부
 
 ---
 
-## 7. useTrial 훅
+## 7. useAnalysis 훅
 
-### 목적
-
-분석 완료 시 자동 갱신되는 트라이얼 상태 관리 React 훅.
-
-### 구현 파일
-
+### 파일
 | 파일 | 변경 |
 |------|------|
-| `frontend/src/hooks/useTrial.ts` | **신규** — 트라이얼 상태 관리 훅 |
+| `frontend/src/hooks/useAnalysis.ts` | `Authorization` 헤더, 429 처리, `trialBlocked` 상태 |
 
-### 핵심 동작
-
-- 마운트 시 `GET /api/trial/status` 호출
-- `trial-status-changed` CustomEvent 리스닝 (분석 성공 시 dispatch됨)
-- 리턴: `{ status, loading, refreshStatus }`
+### 변경
+1. `headers: { Authorization: 'Bearer ' + token, 'X-Request-Id': uuid }` 추가
+2. 새 상태 `trialBlocked` — HTTP 429 `trial_limit_reached` 시 설정
+3. 성공 후 트라이얼 상태 갱신(배너)
+4. `trialBlocked` 리턴
 
 ---
 
-## 8. useAnalysis 훅 수정
+## 8. LoginButton + TrialBanner
 
-### 목적
-
-기존 분석 훅에 기기 식별 헤더 + 트라이얼 한도 처리 추가.
-
-### 구현 파일
-
+### 파일
 | 파일 | 변경 |
 |------|------|
-| `frontend/src/hooks/useAnalysis.ts` | X-Device-Id 헤더, 429 처리, 이벤트 dispatch 추가 |
+| `frontend/src/components/LoginButton.tsx` | **신규** — Google 로그인/로그아웃 버튼 |
+| `frontend/src/components/TrialBanner.tsx` | **신규** — 사이드바 위젯 |
+| `frontend/src/components/Sidebar.tsx` | 하드코딩 "AI USAGE 0/100" → `<TrialBanner />` 교체 |
 
-### 변경사항
-
-1. **Line 35**: fetch 호출에 `headers: { 'X-Device-Id': getDeviceId() }` 추가
-2. **새 상태**: `trialBlocked` — HTTP 429 + `trial_limit_reached` 시 설정
-3. **성공 후**: `trial-status-changed` CustomEvent dispatch
-4. **리턴값**: `trialBlocked` 추가
+### TrialBanner 명세
+- 로그아웃 상태: "로그인하고 무료 3회 받기" + LoginButton
+- 로그인 상태: 유저 이름/이메일 + 잔여 횟수(예: "2/3 remaining") + 4px 프로그레스바 + 로그아웃
 
 ---
 
-## 9. TrialBanner 컴포넌트
+## 9. TrialLimitModal
 
-### 목적
-
-사이드바에 잔여 무료체험 횟수와 이메일 등록 안내를 표시.
-
-### 구현 파일
-
+### 파일
 | 파일 | 변경 |
 |------|------|
-| `frontend/src/components/TrialBanner.tsx` | **신규** — 트라이얼 상태 표시 |
-| `frontend/src/components/Sidebar.tsx` | 하드코딩된 "AI USAGE 0/100" (lines 154-187) → `<TrialBanner />` 교체 |
+| `frontend/src/components/TrialLimitModal.tsx` | **신규** — HTTP 429 시 표시 |
 
-### UI 명세
-
-- "FREE TRIAL" 라벨 (xs, muted 텍스트)
-- 잔여 횟수 (numeric 폰트, accent 색상, 예: "2/3 remaining")
-- 4px 프로그레스바 (theme.accent 채움)
-- 익명 티어: "이메일 등록하면 +3회" 링크 → EmailRegistrationModal 열기
-- 이메일 티어: 체크마크 + "Email verified" 텍스트
+### 단일 변형
+- "무료 체험 한도 도달"
+- "무료 3회를 모두 사용했습니다. 프리미엄 플랜 준비 중입니다."
+- [확인] → 닫기
+- 기존 AlertModal/AddStockModal 패턴 준수 (fixed overlay, 중앙 카드, 외부 클릭 닫기)
 
 ---
 
-## 10. EmailRegistrationModal 컴포넌트
+## 10. 게이트 와이어링 (AiAnalysisInline)
 
-### 목적
-
-이메일 등록 및 인증 코드 입력을 위한 2단계 모달.
-
-### 구현 파일
-
+### 파일
 | 파일 | 변경 |
 |------|------|
-| `frontend/src/components/EmailRegistrationModal.tsx` | **신규** — 이메일 인증 플로우 모달 |
+| `frontend/src/components/AiAnalysisInline.tsx` | 두 분석 버튼 로그인 우선; `trialBlocked` 시 TrialLimitModal |
+| `frontend/src/pages/QuickLook.tsx` | `useAnalysis`의 `trialBlocked` 전달 |
 
-### UI 플로우
-
-**1단계 — 이메일 입력:**
-- 제목: "Get 3 More Free Analyses"
-- 이메일 입력 필드
-- "Send Code" 버튼
-
-**2단계 — 코드 입력:**
-- 제목: "Enter Verification Code"
-- 6자리 코드 입력 (숫자, 가운데 정렬)
-- "Verify" 버튼
-- "코드 재발송" 링크 (60초 쿨다운 타이머)
-- 오류/만료 코드 에러 표시
-
-### 모달 패턴
-
-- Fixed overlay `rgba(0,0,0,0.5)`, zIndex: 500
-- `theme.bg_card`로 카드 중앙 배치
-- 외부 클릭 시 닫기 (stopPropagation)
-- 기존 AlertModal/AddStockModal 패턴 준수
-
----
-
-## 11. TrialLimitModal 컴포넌트
-
-### 목적
-
-분석 시 HTTP 429 응답(트라이얼 한도 도달) 시 표시되는 모달. 등록 상태에 따라 2가지 변형.
-
-### 구현 파일
-
-| 파일 | 변경 |
-|------|------|
-| `frontend/src/components/TrialLimitModal.tsx` | **신규** — 한도 도달 모달 |
-
-### 변형
-
-**변형 A — 익명 (email_registered = false):**
-- "Free Trial Limit Reached"
-- "이메일 등록하면 3회 더!"
-- [이메일 등록] 버튼 → EmailRegistrationModal 열기
-- [나중에] 버튼 → 닫기
-
-**변형 B — 이메일 유저 (email_registered = true):**
-- "Trial Limit Reached"
-- "6회 무료 체험을 모두 사용했습니다. 프리미엄 플랜 준비 중입니다."
-- [확인] 버튼 → 닫기
-
----
-
-## 12. 기존 컴포넌트 연결
-
-### 목적
-
-트라이얼 상태와 모달을 기존 컴포넌트에 연결.
-
-### 구현 파일
-
-| 파일 | 변경 |
-|------|------|
-| `frontend/src/components/AiAnalysisInline.tsx` | `trialBlocked` prop 추가, 블록 시 TrialLimitModal 표시 |
-| `frontend/src/pages/QuickLook.tsx` | useAnalysis에서 `trialBlocked` 받아서 AiAnalysisInline에 전달 |
-
-### AiAnalysisInline 변경
-
-- 새 `trialBlocked` prop 수용
-- `trialBlocked` 설정 시 TrialLimitModal 렌더링
-- 재분석 confirm 메시지 (line 82) 트라이얼 잔여 횟수 반영
-
-### QuickLook 변경
-
-- `useAnalysis` 훅에서 `trialBlocked` 구조 분해 (line 31)
-- `<AiAnalysisInline trialBlocked={...} />`로 전달 (line 108)
+### 동작
+- 로그아웃 상태에서 "AI 분석"/"재분석" 클릭 시 API 대신 로그인 플로우 오픈
+- 로그인했으나 크레딧 소진(429) 시 TrialLimitModal 렌더
 
 ---
 
@@ -933,28 +797,22 @@ CREATE TABLE IF NOT EXISTS email_verification (
 
 | 시나리오 | 처리 |
 |----------|------|
-| localStorage 초기화 | 새 UUID → `balance=3` 새 지갑. 동일 이메일 +3 재지급 불가 (UNIQUE) |
-| 동시 분석 요청 | 원자적 `UPDATE ... WHERE (balance - held) >= 1` — 가용 크레딧 수만큼만 예약 성공, 나머지 429 |
-| 하드 파이프라인 실패 | `release_credit`로 예약 환불 — 크레딧 **유실 안 됨** |
-| 재시도 / 중복 제출 | 같은 `ref_id`로 기존 예약 재사용 → **1회만 차감**(멱등) |
-| 글로벌 100/일 한도 도달 | (Phase 14 = 무료 전용) 예약은 이미 잡힘 → 하드 실패로 간주 → `release`(환불). V2-2에서 글로벌 캡을 고임계 서킷브레이커로 교체 |
-| 다른 기기에서 동일 이메일 | `request_verification` 거부: "이 이메일은 이미 등록되어 있습니다" |
-| 인증 코드 무차별 대입 | 코드당 최대 3회 시도, 10분 만료 (6자리 = 100만 경우의 수) |
-| 코드 스팸 | 기기당 10분 내 최대 3개 활성 코드 |
+| 비로그인 | `get_current_user` → 401; 프론트가 Google 로그인 유도 |
+| localStorage 초기화 | 같은 Google 계정으로 재로그인 → **같은 `sub` → 같은 지갑** (크레딧 초기화 안 됨) |
+| 캐시 히트 | 무료 — 예약 이전 반환 (엔드포인트 도달엔 로그인 필요) |
+| 동시 분석 요청 | 원자적 `UPDATE ... WHERE (balance - held) >= 1` — 초과 사용 없음, 초과분 429 |
+| 하드 파이프라인 실패 | `release_credit`로 환불 — 크레딧 유실 안 됨 |
+| 재시도 / 중복 제출 | 같은 `ref_id`로 기존 예약 재사용 → 1회만 차감(멱등) |
+| 글로벌 100/일 한도 도달 | 예약 이미 잡힘 → 하드 실패로 간주 → `release`(환불). V2-2에서 고임계 서킷브레이커로 교체 |
+| 무효/만료 토큰 | `verify_oauth2_token` 예외 → 401 |
 
 ---
 
 ## 전환 경로
 
-### 하이브리드 → 이메일 전용 (코드 2곳 수정)
-
-1. `backend/routers/analysis.py`: `x_device_id: Optional[str] = Header(None)` → `x_device_id: str = Header(...)`
-2. `reserve_credit`에 체크 추가: `email_verified == 0`이면 `reason: "email_required"`로 거부
-
 ### 무료 → 유료 티어 (V2-2, [`BACKLOG.md`](../BACKLOG.md) 참조)
-
 - `topup` 원장 타입 추가 — 결제 웹훅 → `balance += 구매량`. **지갑/원장 재설계 없음**
-- 글로벌 일일 100회 하드캡(`utils/usage_tracker.py`)을 **고임계 서킷브레이커**로 교체 — 폭주/어뷰징만 차단(유료 사용자는 절대 안 막힘)
+- 글로벌 100/일 하드캡(`utils/usage_tracker.py`)을 **고임계 서킷브레이커**로 교체 (유료 사용자는 안 막힘)
 - 예약 → 확정/환불 흐름과 멱등성은 유료 크레딧에도 그대로 재사용
 
 ---
@@ -962,78 +820,71 @@ CREATE TABLE IF NOT EXISTS email_verification (
 ## 구현 순서
 
 ```
-백엔드 (독립적, 먼저 테스트 가능):
-  1. data/database.py          — 스키마 기반
-  2. services/email_sender.py  — 의존성 없음
-  3. services/trial_service.py — database 의존
-  4. backend/routers/trial.py  — trial_service 의존
-  5. backend/main.py           — 라우터 등록
-  6. backend/routers/analysis.py — 트라이얼 게이트 삽입
+PHASE A — 백엔드 (✅ 완료, Client ID 불필요):
+  1. services/trial_service.py   — 이메일 로직 제거, sub 기반 지갑
+  2. backend/auth.py             — Google 토큰 검증 + get_current_user
+  3. backend/routers/analysis.py — Depends(get_current_user), 상시 게이트
+  4. backend/routers/trial.py    — /trial/status만
+  5. tests/test_phase14_trial.py — 단위 테스트 (12개 통과)
 
-프론트엔드 (백엔드 완성 후):
-  7. frontend/src/services/deviceId.ts   — 의존성 없음
-  8. frontend/src/services/trialApi.ts   — deviceId 의존
-  9. frontend/src/hooks/useTrial.ts      — trialApi 의존
-  10. frontend/src/hooks/useAnalysis.ts  — deviceId 의존
-  11. frontend/src/components/TrialBanner.tsx
-  12. frontend/src/components/EmailRegistrationModal.tsx
-  13. frontend/src/components/TrialLimitModal.tsx
-  14. frontend/src/components/Sidebar.tsx — TrialBanner 교체
-  15. frontend/src/components/AiAnalysisInline.tsx — 모달 연결
-  16. frontend/src/pages/QuickLook.tsx    — prop 전달
+PHASE B — 프론트엔드 (Google Client ID 발급 후):
+  6. @react-oauth/google + GoogleOAuthProvider
+  7. useAuth 훅
+  8. useAnalysis — Authorization 헤더 + 429
+  9. LoginButton + TrialBanner (Sidebar 교체) + TrialLimitModal
+ 10. 게이트 와이어링 (AiAnalysisInline)
+
+PHASE C — 통합 테스트 + QA
 ```
 
 ---
 
 ## 파일 요약
 
-### 신규 파일 (9개)
+### 신규 파일
+| 파일 | 용도 | 상태 |
+|------|------|------|
+| `backend/auth.py` | Google ID 토큰 검증 + 의존성 | ✅ |
+| `tests/test_phase14_trial.py` | 지갑 + 인증 단위 테스트 | ✅ |
+| `frontend/src/auth/AuthProvider.tsx` | `AuthProvider` + `useAuth` (Google 인증 상태) | ✅ |
+| `frontend/src/components/LoginButton.tsx` | Google 로그인/로그아웃 버튼 | ✅ |
+| `frontend/src/components/TrialBanner.tsx` | 사이드바 트라이얼 배너 | ✅ |
+| `frontend/src/components/TrialLimitModal.tsx` | 한도 도달 모달 | ✅ |
 
-| 파일 | 용도 |
+### 수정 파일
+| 파일 | 변경 | 상태 |
+|------|------|------|
+| `services/trial_service.py` | 이메일 로직 제거, sub 기반 지갑 | ✅ |
+| `backend/routers/analysis.py` | 로그인 필수 게이트, sub 기반 예약/확정/환불 | ✅ |
+| `backend/routers/trial.py` | `/trial/status`만 | ✅ |
+| `requirements.txt` | `google-auth>=2.28.0` | ✅ |
+| `.env.example` | `GOOGLE_CLIENT_ID` / `VITE_GOOGLE_CLIENT_ID` | ✅ |
+| `frontend/src/config.ts` | `GOOGLE_CLIENT_ID` export | ✅ |
+| `frontend/src/App.tsx` | `GoogleOAuthProvider` + `AuthProvider` 래핑 | ✅ |
+| `frontend/src/hooks/useAnalysis.ts` | 인증 헤더 + 429 처리 | ✅ |
+| `frontend/src/components/Sidebar.tsx` | AI USAGE → TrialBanner 교체 | ✅ |
+| `frontend/src/components/AiAnalysisInline.tsx` | 게이트 와이어링 + 모달 | ✅ |
+| `frontend/src/pages/QuickLook.tsx` | `trialBlocked` 전달 | ✅ |
+
+### 삭제 파일
+| 파일 | 이유 |
 |------|------|
-| `services/email_sender.py` | 플러그인 이메일 발송 (콘솔/SMTP) |
-| `services/trial_service.py` | 핵심 트라이얼 비즈니스 로직 |
-| `backend/routers/trial.py` | 트라이얼 API 엔드포인트 |
-| `frontend/src/services/deviceId.ts` | 기기 ID 생성 + 저장 |
-| `frontend/src/services/trialApi.ts` | 트라이얼 API 클라이언트 |
-| `frontend/src/hooks/useTrial.ts` | 트라이얼 상태 관리 훅 |
-| `frontend/src/components/TrialBanner.tsx` | 사이드바 트라이얼 배너 |
-| `frontend/src/components/EmailRegistrationModal.tsx` | 이메일 인증 모달 |
-| `frontend/src/components/TrialLimitModal.tsx` | 한도 도달 모달 |
-
-### 수정 파일 (7개)
-
-| 파일 | 변경 |
-|------|------|
-| `data/database.py` | CREATE_TABLES_SQL에 테이블 3개 추가 (wallets + ledger + email_verification) |
-| `backend/main.py` | trial 라우터 import + 등록 |
-| `backend/routers/analysis.py` | X-Device-Id 헤더 + 예약→확정/환불 게이트 |
-| `frontend/src/hooks/useAnalysis.ts` | 기기 헤더 + 429 처리 |
-| `frontend/src/components/Sidebar.tsx` | AI USAGE → TrialBanner 교체 |
-| `frontend/src/components/AiAnalysisInline.tsx` | trialBlocked + 모달 연결 |
-| `frontend/src/pages/QuickLook.tsx` | trialBlocked prop 전달 |
+| `services/email_sender.py` | 피벗 후 dead code (import 없음) — 2026-06-16 삭제 |
 
 ---
 
 ## 검증
 
-### 백엔드 테스트
+### 백엔드 (✅ 완료)
+1. **단위 테스트** (`tests/test_phase14_trial.py`): 지갑 생성, 예약/확정/환불, 실패 시 환불, 소진 시 429, 멱등성, 계정 격리, `get_current_user` 401 경로 — **12개 통과**
+2. **Import 확인**: `from backend.main import app` 클린 로드; `/api/trial/status`만 노출
+3. **수동** (Client ID 발급 후): `curl -H "Authorization: Bearer <token>" http://localhost:8001/api/trial/status`
 
-1. **단위 테스트**: trial_service 함수별 (지갑 생성, 예약/확정/환불, 실패 시 환불, 코드 검증)
-2. **API 테스트**: `curl -H "X-Device-Id: test-uuid" http://localhost:8001/api/trial/status`
-3. **429 테스트**: 3크레딧 소진 후 4번째 요청 → 429 + 바디(`balance`, `available`, `email_registered`) 확인
-4. **캐시 우회 테스트**: 캐시된 분석은 예약/차감 안 함 확인
-5. **환불 테스트**: 파이프라인 강제 실패 → `release` 원장 1줄 + balance 불변 확인
-6. **멱등성 테스트**: 같은 `ref_id` 2회 전송 → 크레딧 1회만 차감 확인
-
-### 프론트엔드 수동 테스트
-
-1. 새 브라우저 → 분석 실행 → TrialBanner "2/3 remaining" 확인
-2. 3회 분석 → TrialLimitModal + "이메일 등록" 옵션 표시
-3. 이메일 인증 완료 → TrialBanner "3/6 remaining" 업데이트
-4. 3회 추가 분석 → TrialLimitModal "체험 종료" 표시 (이메일 옵션 없음)
-5. localStorage 초기화 → 새 기기 ID → "3/3 remaining" 초기화
-6. 동일 이메일 재등록 시도 → 에러 메시지
+### 프론트엔드 (✅ 빌드 통과 — `tsc -b` + `vite build`)
+1. 로그아웃 상태 → "AI 분석" 클릭 시 Google 로그인 오픈 *(수동 QA 대기)*
+2. 로그인 → 분석 실행 → TrialBanner "2/3 left" *(수동 QA 대기)*
+3. 3회 사용 → TrialLimitModal "프리미엄 준비 중" *(수동 QA 대기)*
+4. localStorage 초기화 → 같은 계정 재로그인 → 크레딧 불변 (같은 `sub`) *(수동 QA 대기)*
 
 ---
 
@@ -1044,3 +895,7 @@ CREATE TABLE IF NOT EXISTS email_verification (
 | 2026-05-16 | 문서 신규 작성 — 초기 계획 (Phase 15로) | AI |
 | 2026-05-16 | Phase 15 → Phase 14로 번호 변경 (i18n과 교체) | AI |
 | 2026-06-09 | **지갑 + 원장 + 예약/확정(hold)** 패턴으로 재설계; 결제는 BACKLOG V2-2로 분리; 유료 전환 시 글로벌 일일 캡 → 서킷브레이커 | AI |
+| 2026-06-15 | 이메일 코드 인증 → **Google OAuth 로그인** 피벗; 무료 제공량 6→3; 게이트를 "AI 분석" 클릭 시 로그인 요구로 축소 | AI |
+| 2026-06-16 | **PHASE A 백엔드 피벗 완료** — `backend/auth.py` 신규, trial_service 이메일 로직 제거, analysis/trial 라우터 검증된 `sub` 기반 전환, 단위 테스트 12개 통과 | AI |
+| 2026-06-16 | dead code `services/email_sender.py` 삭제; **문서 전체 영/한 재작성** (피벗 반영, §1~10 상세 섹션 EN/KR 재동기화) | AI |
+| 2026-06-16 | **PHASE B 프론트엔드 완료** — `@react-oauth/google` + `AuthProvider`/`useAuth`/`LoginButton`/`TrialBanner`/`TrialLimitModal`, useAnalysis 인증+429, Sidebar/AiAnalysisInline 게이트 와이어링; 빌드 통과; Google Client ID 설정 완료. #12 수동 QA 대기 | AI |
